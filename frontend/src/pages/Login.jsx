@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
-const BACKEND_URL = 'http://localhost:8083'
+const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:8083'
 
 function Login({ onLogin }) {
   const [email, setEmail] = useState('')
