@@ -10,13 +10,19 @@ function App() {
   const [user, setUser] = useState(null)
 
   useEffect(() => {
+    // Restore user from localStorage
     const savedUser = localStorage.getItem('user')
     if (savedUser) {
-      setUser(JSON.parse(savedUser))
+      try {
+        setUser(JSON.parse(savedUser))
+      } catch (e) {
+        localStorage.removeItem('user')
+      }
     }
   }, [])
 
   const handleLogin = (userData) => {
+    // Store user data with token
     setUser(userData)
     localStorage.setItem('user', JSON.stringify(userData))
   }
@@ -31,6 +37,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login onLogin={handleLogin} />} />
         <Route path="/register" element={<Register onLogin={handleLogin} />} />
+        
         <Route
           path="/admin"
           element={
@@ -41,6 +48,7 @@ function App() {
             )
           }
         />
+        
         <Route
           path="/trainer"
           element={
@@ -51,6 +59,7 @@ function App() {
             )
           }
         />
+        
         <Route
           path="/participant"
           element={
@@ -61,6 +70,7 @@ function App() {
             )
           }
         />
+        
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </BrowserRouter>

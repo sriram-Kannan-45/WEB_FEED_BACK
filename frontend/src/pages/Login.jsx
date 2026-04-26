@@ -6,7 +6,6 @@ const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 function Login({ onLogin }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState('ADMIN')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
@@ -16,8 +15,6 @@ function Login({ onLogin }) {
     setError('')
     setLoading(true)
 
-    console.log('Attempting login with:', { email, role })
-
     try {
       const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
         method: 'POST',
@@ -25,23 +22,17 @@ function Login({ onLogin }) {
         body: JSON.stringify({ email, password }),
       })
 
-      console.log('Response status:', response.status)
-
       const data = await response.json()
-      console.log('Response data:', data)
 
       if (!response.ok) {
         throw new Error(data.error || 'Login failed')
       }
 
-      if (data.role !== role) {
-        setError(`Invalid role. Your role is ${data.role}`)
-        setLoading(false)
-        return
-      }
-
+      // Store user data including token
+      localStorage.setItem('user', JSON.stringify(data))
       onLogin(data)
 
+      // Redirect based on role from backend
       if (data.role === 'ADMIN') {
         navigate('/admin')
       } else if (data.role === 'TRAINER') {
@@ -50,7 +41,6 @@ function Login({ onLogin }) {
         navigate('/participant')
       }
     } catch (err) {
-      console.error('Login error:', err.message)
       setError(err.message)
     } finally {
       setLoading(false)
@@ -60,7 +50,7 @@ function Login({ onLogin }) {
   return (
     <div className="container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
       <div className="card" style={{ width: '100%', maxWidth: '400px' }}>
-        <h2 style={{ marginBottom: '24px', textAlign: 'center' }}>Login</h2>
+        <h2 style={{ marginBottom: '24px', textAlign: 'center' }}>WAVE INIT LMS</h2>
 
         {error && <div className="error">{error}</div>}
 
@@ -68,11 +58,11 @@ function Login({ onLogin }) {
           <div className="form-group">
             <label>Email</label>
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="Enter your email"
+              placeholder="Enter email or username"
             />
           </div>
 
@@ -83,20 +73,11 @@ function Login({ onLogin }) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              placeholder="Enter your password"
+              placeholder="Enter password"
             />
           </div>
 
-          <div className="form-group">
-            <label>Role</label>
-            <select value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="ADMIN">ADMIN</option>
-              <option value="TRAINER">TRAINER</option>
-              <option value="PARTICIPANT">PARTICIPANT</option>
-            </select>
-          </div>
-
-          <button type="submit" className="btn btn-primary" disabled={loading}>
+          <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%' }}>
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>

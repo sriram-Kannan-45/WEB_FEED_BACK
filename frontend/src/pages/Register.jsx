@@ -1,42 +1,35 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
-const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API = 'http://localhost:3001/api'
 
 function Register({ onLogin }) {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
+  const navigate = useNavigate()
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '', phone: '' })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setSuccess('')
 
-    if (password !== confirmPassword) {
+    if (form.password !== form.confirmPassword) {
       setError('Passwords do not match')
       return
     }
 
     setLoading(true)
 
-    console.log('Attempting registration with:', email)
-
     try {
-      const response = await fetch(`${BACKEND_URL}/api/auth/register`, {
+      const response = await fetch(`${API}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(form)
       })
 
-      console.log('Response status:', response.status)
-
       const data = await response.json()
-      console.log('Response data:', data)
 
       if (!response.ok) {
         throw new Error(data.error || 'Registration failed')
@@ -47,7 +40,6 @@ function Register({ onLogin }) {
         navigate('/login')
       }, 1500)
     } catch (err) {
-      console.error('Registration error:', err.message)
       setError(err.message)
     } finally {
       setLoading(false)
@@ -57,20 +49,43 @@ function Register({ onLogin }) {
   return (
     <div className="container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
       <div className="card" style={{ width: '100%', maxWidth: '400px' }}>
-        <h2 style={{ marginBottom: '24px', textAlign: 'center' }}>Register as Participant</h2>
+        <h2 style={{ marginBottom: '24px', textAlign: 'center' }}>WAVE INIT LMS</h2>
+        <p style={{ marginBottom: '24px', textAlign: 'center', color: '#666' }}>Register as Participant</p>
 
         {error && <div className="error">{error}</div>}
         {success && <div className="success">{success}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
+            <label>Name</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              required
+              placeholder="Your name"
+            />
+          </div>
+
+          <div className="form-group">
             <label>Email</label>
             <input
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
               required
-              placeholder="Enter your email"
+              placeholder="Your email"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Phone</label>
+            <input
+              type="text"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              required
+              placeholder="Phone number"
             />
           </div>
 
@@ -78,8 +93,8 @@ function Register({ onLogin }) {
             <label>Password</label>
             <input
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
               required
               placeholder="Create a password"
             />
@@ -89,21 +104,21 @@ function Register({ onLogin }) {
             <label>Confirm Password</label>
             <input
               type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              value={form.confirmPassword}
+              onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
               required
               placeholder="Confirm your password"
             />
           </div>
 
-          <button type="submit" className="btn btn-secondary" disabled={loading}>
+          <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%' }}>
             {loading ? 'Registering...' : 'Register'}
           </button>
         </form>
 
-        <Link to="/login" className="link">
-          Already have an account? Login
-        </Link>
+        <a href="/login" className="link">
+          Already have an account? Sign In
+        </a>
       </div>
     </div>
   )
