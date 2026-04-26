@@ -1,12 +1,17 @@
 import { useState } from 'react'
 
-const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:8083'
+const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 function AdminDashboard({ user, onLogout }) {
   const [trainerEmail, setTrainerEmail] = useState('')
   const [trainerPassword, setTrainerPassword] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+
+  const getAuthHeader = () => ({
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${user.token}`,
+  })
 
   const handleCreateTrainer = async (e) => {
     e.preventDefault()
@@ -16,10 +21,7 @@ function AdminDashboard({ user, onLogout }) {
     try {
       const response = await fetch(`${BACKEND_URL}/api/auth/createTrainer`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Admin-Email': user.email,
-        },
+        headers: getAuthHeader(),
         body: JSON.stringify({ email: trainerEmail, password: trainerPassword }),
       })
 

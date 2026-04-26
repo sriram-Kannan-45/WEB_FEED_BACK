@@ -1,6 +1,5 @@
 package com.feedback.dto;
 
-import com.feedback.entity.User;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -8,10 +7,8 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class AuthResponse {
+public class TrainerInfo {
     private Long id;
     private String name;
     private String email;
-    private User.Role role;
-    private String message;
 }
