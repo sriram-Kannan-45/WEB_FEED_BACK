@@ -48,13 +48,28 @@ function AdminDashboard({ user, onLogout }) {
     try {
       const headers = getAuthHeader()
       console.log('Fetching trainings with token:', headers.Authorization ? 'YES' : 'NO')
-      const response = await fetch(`${API}/admin/trainings`, { headers })
-      const data = await response.json()
+      
+      // Try admin endpoint first
+      let response = await fetch(`${API}/admin/trainings`, { headers })
+      let data = await response.json()
       console.log('Trainings response:', response.status, data)
+      
+      // If admin fails, try public endpoint
+      if (!response.ok || (!data.trainings && !Array.isArray(data))) {
+        console.log('Trying public /trainings endpoint...')
+        response = await fetch(`${API}/trainings`, { headers })
+        data = await response.json()
+        console.log('Public response:', response.status, data)
+      }
+      
       if (data.trainings) {
         setTrainings(data.trainings)
+        console.log('Set trainings from data.trainings:', data.trainings.length)
       } else if (Array.isArray(data)) {
         setTrainings(data)
+        console.log('Set trainings from array:', data.length)
+      } else {
+        console.log('No trainings in response:', data)
       }
     } catch (err) { console.error('Fetch error:', err) }
   }

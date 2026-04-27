@@ -10,9 +10,12 @@ async function testDB() {
   });
 
   console.log('=== DB CHECK ===');
-  console.log('Users:', (await connection.query('SELECT id, email, role FROM users')).[0].length);
-  console.log('Trainings:', (await connection.query('SELECT id, title FROM trainings')).[0].length);
-  console.log('Trainers:', (await connection.query("SELECT id, email FROM users WHERE role='TRAINER'")).[0].length);
+  const [users] = await connection.query('SELECT id, email, role FROM users');
+  console.log('Users:', users.length);
+  
+  const [trainings] = await connection.query('SELECT id, title, trainer_id FROM trainings');
+  console.log('Trainings:', trainings.length);
+  trainings.forEach(t => console.log('  - ID:', t.id, '| Title:', t.title, '| TrainerID:', t.trainer_id));
   
   await connection.end();
 }
