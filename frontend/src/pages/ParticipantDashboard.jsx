@@ -32,7 +32,7 @@ function ParticipantDashboard({ user, onLogout }) {
 
   const fetchTrainings = async () => {
     try {
-      const response = await fetch(`${API}/admin/trainings`, { headers: getAuthHeader() })
+      const response = await fetch(`${API}/trainings`, { headers: getAuthHeader() })
       const data = await response.json()
       console.log('Participant trainings:', response.status, data)
       if (data.trainings) setTrainings(data.trainings)
@@ -42,7 +42,7 @@ function ParticipantDashboard({ user, onLogout }) {
 
   const fetchEnrollments = async () => {
     try {
-      const response = await fetch(`${API}/enrollments`, { headers: getAuthHeader() })
+      const response = await fetch(`${API}/participant/enrollments`, { headers: getAuthHeader() })
       const data = await response.json()
       if (data.enrollments) setEnrollments(data.enrollments)
     } catch (err) { console.error(err) }
@@ -50,7 +50,7 @@ function ParticipantDashboard({ user, onLogout }) {
 
   const fetchFeedbacks = async () => {
     try {
-      const response = await fetch(`${API}/participant/feedbacks`, { headers: getAuthHeader() })
+      const response = await fetch(`${API}/feedback/my-feedbacks`, { headers: getAuthHeader() })
       const data = await response.json()
       if (data.feedbacks) setFeedbacks(data.feedbacks)
     } catch (err) { console.error(err) }
@@ -59,7 +59,7 @@ function ParticipantDashboard({ user, onLogout }) {
   const handleEnroll = async (trainingId) => {
     setLoading(true)
     try {
-      const response = await fetch(`${API}/enroll`, {
+      const response = await fetch(`${API}/participant/enroll`, {
         method: 'POST',
         headers: getAuthHeader(),
         body: JSON.stringify({ trainingId })
