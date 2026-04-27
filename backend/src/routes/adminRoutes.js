@@ -36,7 +36,7 @@ router.get(
   '/trainings',
   authenticateToken,
   roleMiddleware('ADMIN'),
-  (req, res) => authController.getTrainers(req, res)
+  (req, res) => trainingController.getAllTrainings(req, res)
 );
 
 router.post(
@@ -45,8 +45,7 @@ router.post(
   roleMiddleware('ADMIN'),
   [
     body('title').notEmpty().withMessage('Title is required'),
-    body('trainerId').notEmpty().withMessage('Trainer ID is required'),
-    body('schedule').notEmpty().withMessage('Schedule is required')
+    body('trainerId').notEmpty().withMessage('Trainer ID is required')
   ],
   (req, res) => trainingController.createTraining(req, res)
 );

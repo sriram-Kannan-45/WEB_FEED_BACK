@@ -49,6 +49,8 @@ const createTraining = async (req, res) => {
       createdBy: req.user.id
     });
 
+    console.log('✅ Training saved:', training.id, '-', training.title);
+
     res.status(201).json({
       id: training.id,
       title: training.title,
@@ -70,6 +72,8 @@ const getAllTrainings = async (req, res) => {
   try {
     const userId = req.user?.id;
     const userRole = req.user?.role;
+
+    console.log('📋 Fetching trainings for role:', userRole);
 
     const trainings = await Training.findAll({
       include: [
