@@ -22,7 +22,7 @@ const generateTempPassword = () => {
 
 const login = async (req, res) => {
   try {
-    const { email, username, password } = req.body;
+    const { email, username, password, role: requestedRole } = req.body;
 
     const credential = email || username;
 
@@ -37,13 +37,18 @@ const login = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'User not found' });
     }
 
     const isValidPassword = await bcrypt.compare(password, user.password);
 
     if (!isValidPassword) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+
+    if (requestedRole && requestedRole !== user.role) {
+      console.log(`⚠️ Role mismatch: requested=${requestedRole}, actual=${user.role}`);
+      return res.status(403).json({ error: 'Incorrect role selected. Please choose the correct role.' });
     }
 
     const token = jwt.sign(
@@ -70,7 +75,11 @@ const login = async (req, res) => {
 
 const register = async (req, res) => {
   try {
-    const { name, email, password, phone } = req.body;
+    const { name, email, password, phone, role } = req.body;
+
+    if (role && role !== 'PARTICIPANT') {
+      return res.status(403).json({ error: 'Only participants are allowed to register' });
+    }
 
     if (!name || !email || !password || !phone) {
       return res.status(422).json({ error: 'Name, email, password, and phone are required' });
@@ -82,10 +91,6 @@ const register = async (req, res) => {
       return res.status(400).json({ error: 'Email already registered' });
     }
 
-    // Only participants can self-register
-    // Admins and trainers must be created by admin
-    const role = 'PARTICIPANT';
-
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
@@ -93,7 +98,7 @@ const register = async (req, res) => {
       email,
       password: hashedPassword,
       phone,
-      role: role
+      role: 'PARTICIPANT'
     });
 
     const token = jwt.sign(

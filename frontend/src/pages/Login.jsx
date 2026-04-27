@@ -6,6 +6,7 @@ const API = 'http://localhost:3001/api'
 function Login({ onLogin }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [role, setRole] = useState('PARTICIPANT')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
@@ -19,7 +20,7 @@ function Login({ onLogin }) {
       const response = await fetch(`${API}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, role }),
       })
 
       const data = await response.json()
@@ -83,15 +84,26 @@ function Login({ onLogin }) {
             />
           </div>
 
+          <div className="form-group">
+            <label>Login as</label>
+            <select value={role} onChange={(e) => setRole(e.target.value)}>
+              <option value="PARTICIPANT">Participant</option>
+              <option value="TRAINER">Trainer</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+          </div>
+
           <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
 
-        <p className="register-link">
-          Don't have an account?{' '}
-          <span onClick={() => navigate('/register')}>Register</span>
-        </p>
+        {role === 'PARTICIPANT' && (
+          <p className="register-link">
+            Don't have an account?{' '}
+            <span onClick={() => navigate('/register')}>Register</span>
+          </p>
+        )}
       </div>
     </div>
   )
