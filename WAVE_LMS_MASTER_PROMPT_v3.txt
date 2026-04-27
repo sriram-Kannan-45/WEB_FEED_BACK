@@ -1,5 +1,5 @@
-WAVE INIT LMS - MASTER PROMPT v3.0 (COMPLETE)
-==============================================
+WAVE INIT LMS - MASTER PROMPT v3.0
+==================================
 You are a senior full-stack engineer. Build and maintain a complete production-ready 
 Learning Management System (LMS) with Training Feedback using React + Node.js + 
 Express + Sequelize + MySQL.
