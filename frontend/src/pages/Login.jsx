@@ -44,6 +44,9 @@ function Login({ onLogin }) {
     }
   }
 
+  // Clean up - role dropdown only for showing register link
+  const showRegister = role === 'PARTICIPANT'
+
   return (
     <div className="login-page">
       <div className="login-card">

@@ -4,16 +4,13 @@ const authenticateToken = require('../middleware/auth');
 
 const router = express.Router();
 
-router.get(
-  '/trainings',
-  authenticateToken,
-  (req, res) => trainingController.getAllTrainings(req, res)
-);
+// Public - anyone can see trainings
+router.get('/', (req, res) => trainingController.getAllTrainings(req, res));
+router.get('/:id', (req, res) => trainingController.getTrainingById(req, res));
 
-router.get(
-  '/trainings/:id',
-  authenticateToken,
-  (req, res) => trainingController.getTrainingById(req, res)
-);
+// Protected
+router.post('/', authenticateToken, (req, res) => trainingController.createTraining(req, res));
+router.put('/:id', authenticateToken, (req, res) => trainingController.updateTraining(req, res));
+router.delete('/:id', authenticateToken, (req, res) => trainingController.deleteTraining(req, res));
 
 module.exports = router;

@@ -22,7 +22,7 @@ const generateTempPassword = () => {
 
 const login = async (req, res) => {
   try {
-    const { email, username, password } = req.body;
+    const { email, username, password, role: requestedRole } = req.body;
 
     const credential = email || username;
 
@@ -46,11 +46,18 @@ const login = async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    if (requestedRole && requestedRole !== user.role) {
+      console.log(`⚠️ Role mismatch: requested=${requestedRole}, actual=${user.role}`);
+      return res.status(403).json({ error: 'Invalid role for this account' });
+    }
+
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
+
+    console.log(`✅ Login success: ${user.email} as ${user.role}`);
 
     res.json({
       id: user.id,
