@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+const API = 'http://localhost:3001/api'
+
 function Login({ onLogin }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState('PARTICIPANT')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
@@ -15,7 +16,7 @@ function Login({ onLogin }) {
     setLoading(true)
 
     try {
-      const response = await fetch(`http://localhost:3001/api/auth/login`, {
+      const response = await fetch(`${API}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -27,14 +28,19 @@ function Login({ onLogin }) {
         throw new Error(data.error || 'Login failed')
       }
 
+      console.log('✅ Logged in as:', data.role, '-', data.email)
+
       localStorage.setItem('user', JSON.stringify(data))
       onLogin(data)
 
       if (data.role === 'ADMIN') {
+        console.log('➡️ Redirecting to: /admin')
         navigate('/admin')
       } else if (data.role === 'TRAINER') {
+        console.log('➡️ Redirecting to: /trainer')
         navigate('/trainer')
       } else {
+        console.log('➡️ Redirecting to: /participant')
         navigate('/participant')
       }
     } catch (err) {
@@ -43,9 +49,6 @@ function Login({ onLogin }) {
       setLoading(false)
     }
   }
-
-  // Clean up - role dropdown only for showing register link
-  const showRegister = role === 'PARTICIPANT'
 
   return (
     <div className="login-page">
@@ -80,26 +83,15 @@ function Login({ onLogin }) {
             />
           </div>
 
-          <div className="form-group">
-            <label>Login as</label>
-            <select value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="PARTICIPANT">Participant</option>
-              <option value="TRAINER">Trainer</option>
-              <option value="ADMIN">Admin</option>
-            </select>
-          </div>
-
           <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
 
-        {role === 'PARTICIPANT' && (
-          <p className="register-link">
-            Don't have an account?{' '}
-            <span onClick={() => navigate('/register')}>Register</span>
-          </p>
-        )}
+        <p className="register-link">
+          Don't have an account?{' '}
+          <span onClick={() => navigate('/register')}>Register</span>
+        </p>
       </div>
     </div>
   )
