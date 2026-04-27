@@ -47,29 +47,23 @@ function AdminDashboard({ user, onLogout }) {
   const fetchTrainings = async () => {
     try {
       const headers = getAuthHeader()
-      console.log('Fetching trainings with token:', headers.Authorization ? 'YES' : 'NO')
+      console.log('Fetching trainings...')
       
-      // Try admin endpoint first
-      let response = await fetch(`${API}/admin/trainings`, { headers })
+      // Try both endpoints
+      let response = await fetch(`${API}/trainings`, { headers })
       let data = await response.json()
       console.log('Trainings response:', response.status, data)
       
-      // If admin fails, try public endpoint
-      if (!response.ok || (!data.trainings && !Array.isArray(data))) {
-        console.log('Trying public /trainings endpoint...')
-        response = await fetch(`${API}/trainings`, { headers })
-        data = await response.json()
-        console.log('Public response:', response.status, data)
-      }
-      
-      if (data.trainings) {
-        setTrainings(data.trainings)
-        console.log('Set trainings from data.trainings:', data.trainings.length)
-      } else if (Array.isArray(data)) {
+      // Accept array or {trainings: []} format
+      if (Array.isArray(data)) {
         setTrainings(data)
-        console.log('Set trainings from array:', data.length)
+        console.log('Set trainings (array):', data.length)
+      } else if (data.trainings) {
+        setTrainings(data.trainings)
+        console.log('Set trainings (object):', data.trainings.length)
       } else {
-        console.log('No trainings in response:', data)
+        console.log('No trainings found, data:', data)
+        setTrainings([])
       }
     } catch (err) { console.error('Fetch error:', err) }
   }

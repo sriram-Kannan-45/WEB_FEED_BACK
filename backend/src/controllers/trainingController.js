@@ -126,10 +126,8 @@ const getAllTrainings = async (req, res) => {
       };
     }));
 
-    res.json({
-      count: formattedTrainings.length,
-      trainings: formattedTrainings
-    });
+    console.log('📋 Returning trainings:', formattedTrainings.length);
+    res.json(formattedTrainings);
   } catch (error) {
     console.error('Get trainings error:', error.message);
     res.status(500).json({ error: 'Server error fetching trainings' });
