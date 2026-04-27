@@ -32,9 +32,11 @@ function ParticipantDashboard({ user, onLogout }) {
 
   const fetchTrainings = async () => {
     try {
-      const response = await fetch(`${API}/trainings`, { headers: getAuthHeader() })
+      const response = await fetch(`${API}/admin/trainings`, { headers: getAuthHeader() })
       const data = await response.json()
+      console.log('Participant trainings:', response.status, data)
       if (data.trainings) setTrainings(data.trainings)
+      else if (Array.isArray(data)) setTrainings(data)
     } catch (err) { console.error(err) }
   }
 

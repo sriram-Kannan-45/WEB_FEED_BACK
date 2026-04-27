@@ -46,10 +46,17 @@ function AdminDashboard({ user, onLogout }) {
 
   const fetchTrainings = async () => {
     try {
-      const response = await fetch(`${API}/trainings`, { headers: getAuthHeader() })
+      const headers = getAuthHeader()
+      console.log('Fetching trainings with token:', headers.Authorization ? 'YES' : 'NO')
+      const response = await fetch(`${API}/admin/trainings`, { headers })
       const data = await response.json()
-      if (data.trainings) setTrainings(data.trainings)
-    } catch (err) { console.error(err) }
+      console.log('Trainings response:', response.status, data)
+      if (data.trainings) {
+        setTrainings(data.trainings)
+      } else if (Array.isArray(data)) {
+        setTrainings(data)
+      }
+    } catch (err) { console.error('Fetch error:', err) }
   }
 
   const fetchFeedbacks = async () => {
