@@ -73,7 +73,7 @@ const getAllTrainings = async (req, res) => {
     const userId = req.user?.id;
     const userRole = req.user?.role;
 
-    console.log('📋 Fetching trainings for role:', userRole);
+    console.log('📋 Fetching trainings for role:', userRole, '| auth:', !!req.user);
 
     const trainings = await Training.findAll({
       include: [
@@ -85,8 +85,10 @@ const getAllTrainings = async (req, res) => {
           required: false
         }
       ],
-      order: [['startDate', 'ASC']]
+      order: [['createdAt', 'DESC']]
     });
+
+    console.log('📋 Found trainings count:', trainings.length);
 
     const formattedTrainings = await Promise.all(trainings.map(async t => {
       const enrolledCount = await Enrollment.count({
