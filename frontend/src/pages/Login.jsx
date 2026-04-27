@@ -1,12 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
-
 function Login({ onLogin }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState('ADMIN')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
@@ -17,7 +14,7 @@ function Login({ onLogin }) {
     setLoading(true)
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+      const response = await fetch(`http://localhost:3001/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -29,11 +26,9 @@ function Login({ onLogin }) {
         throw new Error(data.error || 'Login failed')
       }
 
-      // Store user data including token
       localStorage.setItem('user', JSON.stringify(data))
       onLogin(data)
 
-      // Redirect based on role from backend
       if (data.role === 'ADMIN') {
         navigate('/admin')
       } else if (data.role === 'TRAINER') {
@@ -81,27 +76,15 @@ function Login({ onLogin }) {
             />
           </div>
 
-          <div className="form-group">
-            <label>Login as</label>
-            <select value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="ADMIN">Admin</option>
-              <option value="TRAINER">Trainer</option>
-              <option value="PARTICIPANT">Participant</option>
-            </select>
-          </div>
-
           <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
 
-        {/* Only show register option for PARTICIPANT */}
-        {role === 'PARTICIPANT' && (
-          <p className="register-link">
-            Don't have an account?{' '}
-            <span onClick={() => navigate('/register')}>Register</span>
-          </p>
-        )}
+        <p className="register-link">
+          Don't have an account?{' '}
+          <span onClick={() => navigate('/register')}>Register</span>
+        </p>
       </div>
     </div>
   )
