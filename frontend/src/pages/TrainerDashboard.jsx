@@ -3,155 +3,167 @@ import { useState, useEffect } from 'react'
 const API = 'http://localhost:3001/api'
 
 function TrainerDashboard({ user, onLogout }) {
-  const [activeTab, setActiveTab] = useState('myTrainings')
-  
-  const [myTrainings, setMyTrainings] = useState([])
+  const [tab, setTab] = useState('trainings')
+  const [trainings, setTrainings] = useState([])
   const [feedbacks, setFeedbacks] = useState([])
-  const [stats, setStats] = useState({ total: 0, avgRating: 0 })
+  const [stats, setStats] = useState({ totalTrainings: 0, avgTrainerRating: 0, avgSubjectRating: 0, totalFeedbacks: 0 })
+
+  const auth = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` })
 
   useEffect(() => {
-    fetchData()
+    fetchTrainings()
+    fetchFeedbacks()
   }, [])
 
-  const getAuthHeader = () => ({
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${user.token}`,
-  })
-
-  const fetchData = async () => {
-    await Promise.all([fetchMyTrainings(), fetchFeedbacks()])
-  }
-
-  const fetchMyTrainings = async () => {
+  const fetchTrainings = async () => {
     try {
-      const response = await fetch(`${API}/trainer/trainings`, { headers: getAuthHeader() })
-      const data = await response.json()
-      if (data.trainings) {
-        setMyTrainings(data.trainings)
-        setStats(prev => ({ ...prev, total: data.trainings.length }))
-      }
-    } catch (err) { console.error(err) }
+      const r = await fetch(`${API}/trainer/trainings`, { headers: auth() })
+      const d = await r.json()
+      const list = d.trainings || []
+      setTrainings(list)
+      setStats(p => ({ ...p, totalTrainings: list.length }))
+    } catch {}
   }
 
   const fetchFeedbacks = async () => {
     try {
-      const response = await fetch(`${API}/trainer/feedbacks`, { headers: getAuthHeader() })
-      const data = await response.json()
-      if (data.feedbacks) {
-        setFeedbacks(data.feedbacks)
-        setStats(prev => ({ ...prev, avgRating: data.averageRating || 0 }))
-      }
-    } catch (err) { console.error(err) }
+      const r = await fetch(`${API}/trainer/feedbacks`, { headers: auth() })
+      const d = await r.json()
+      const list = d.feedbacks || []
+      setFeedbacks(list)
+      setStats(p => ({
+        ...p,
+        avgTrainerRating: d.averageTrainerRating || 0,
+        avgSubjectRating: d.averageSubjectRating || 0,
+        totalFeedbacks: list.length
+      }))
+    } catch {}
   }
 
-  const formatDate = (d) => d ? new Date(d).toLocaleString() : '-'
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'
+  const Stars = ({ v }) => <span className="stars">{[1,2,3,4,5].map(s => <span key={s} className={`star ${s<=v?'filled':''}`}>&#9733;</span>)}</span>
+  const initials = (name) => name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2) : 'TR'
 
-  const tabs = [
-    { key: 'myTrainings', label: 'My Trainings' },
-    { key: 'feedback', label: 'Feedback' },
+  const TABS = [
+    { key: 'trainings', label: 'My Trainings' },
+    { key: 'feedback', label: 'Feedback Received' },
   ]
 
   return (
     <div>
-      <div className="navbar">
-        <h1>WAVE INIT LMS</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <span>{user.email}</span>
-          <button onClick={onLogout}>Logout</button>
+      <nav className="navbar">
+        <div className="navbar-brand">
+          <div className="navbar-logo">W</div>
+          <h1>WAVE INIT LMS</h1>
+          <span className="navbar-badge">Trainer</span>
         </div>
-      </div>
-
-      <div className="container dashboard">
-        <div className="tabs">
-          {tabs.map(tab => (
-            <button
-              key={tab.key}
-              className={`tab ${activeTab === tab.key ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {activeTab === 'myTrainings' && (
-          <div>
-            <div style={{ display: 'flex', gap: '16px', marginBottom: '20px' }}>
-              <div className="card" style={{ flex: 1, textAlign: 'center' }}>
-                <h2>{stats.total}</h2>
-                <p>My Trainings</p>
-              </div>
-              <div className="card" style={{ flex: 1, textAlign: 'center' }}>
-                <h2>{stats.avgRating}</h2>
-                <p>Avg Rating</p>
-              </div>
+        <div className="navbar-right">
+          <div className="user-chip">
+            <div className="user-avatar">{initials(user.name)}</div>
+            <div className="user-chip-info">
+              <span>{user.name || 'Trainer'}</span>
+              <small>{user.email}</small>
             </div>
+          </div>
+          <button className="btn btn-sm btn-logout" onClick={onLogout}>Sign Out</button>
+        </div>
+      </nav>
 
-            <div className="card">
-              <h3>My Training Sessions</h3>
-              {myTrainings.length === 0 ? (
-                <p>No trainings assigned</p>
+      <div className="container">
+        <div className="dashboard">
+          <div className="stats-grid">
+            <div className="stat-card">
+              <div className="stat-label">Assigned Trainings</div>
+              <div className="stat-value">{stats.totalTrainings}</div>
+            </div>
+            <div className="stat-card green">
+              <div className="stat-label">Feedback Responses</div>
+              <div className="stat-value">{stats.totalFeedbacks}</div>
+            </div>
+            <div className="stat-card purple">
+              <div className="stat-label">Avg Trainer Rating</div>
+              <div className="stat-value">{stats.avgTrainerRating}</div>
+            </div>
+            <div className="stat-card orange">
+              <div className="stat-label">Avg Subject Rating</div>
+              <div className="stat-value">{stats.avgSubjectRating}</div>
+            </div>
+          </div>
+
+          <div className="tabs">
+            {TABS.map(t => (
+              <button key={t.key} className={`tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'trainings' && (
+            <div>
+              <div className="section-header">
+                <h3>Assigned Training Programs</h3>
+              </div>
+              {trainings.length === 0 ? (
+                <div className="card"><div className="empty-state"><p>No trainings assigned to you yet.</p></div></div>
               ) : (
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Title</th>
-                      <th>Schedule</th>
-                      <th>Capacity</th>
-                      <th>Enrolled</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {myTrainings.map(t => (
-                      <tr key={t.id}>
-                        <td>{t.title}</td>
-                        <td>{formatDate(t.schedule)}</td>
-                        <td>{t.capacity || 'Unlimited'}</td>
-                        <td>{t.enrolledCount || 0}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="training-grid">
+                  {trainings.map(t => {
+                    const pct = t.capacity ? Math.round((t.enrolledCount / t.capacity) * 100) : null
+                    return (
+                      <div key={t.id} className="training-card">
+                        <div className="training-card-title">{t.title}</div>
+                        <div className="training-card-desc">{t.description || 'No description provided.'}</div>
+                        <div className="training-meta">
+                          <div className="meta-item"><span className="meta-key">Dates:</span><span>{fmtDate(t.startDate)} - {fmtDate(t.endDate)}</span></div>
+                          <div className="meta-item"><span className="meta-key">Enrolled:</span><span>{t.enrolledCount} {t.capacity ? `/ ${t.capacity}` : ''}</span></div>
+                        </div>
+                        {pct !== null && (
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)' }}>
+                              <span>Capacity Fill</span><span>{pct}%</span>
+                            </div>
+                            <div className="progress-bar"><div className="progress-fill" style={{ width: `${pct}%` }} /></div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               )}
             </div>
-          </div>
-        )}
+          )}
 
-        {activeTab === 'feedback' && (
-          <div className="card">
-            <h3>Feedback Received</h3>
-            {feedbacks.length === 0 ? (
-              <p>No feedback received</p>
-            ) : (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Training</th>
-                    <th>Trainer Rating</th>
-                    <th>Subject Rating</th>
-                    <th>Comments</th>
-                    <th>Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {feedbacks.map(f => (
-                    <tr key={f.id}>
-                      <td>{f.trainingTitle}</td>
-                      <td>{[1,2,3,4,5].map(s => (
-                        <span key={s} style={{ color: s <= f.trainerRating ? '#ffc107' : '#ddd' }}>★</span>
-                      ))}</td>
-                      <td>{[1,2,3,4,5].map(s => (
-                        <span key={s} style={{ color: s <= f.subjectRating ? '#ffc107' : '#ddd' }}>★</span>
-                      ))}</td>
-                      <td>{f.comments || '-'}</td>
-                      <td>{f.submittedAt ? new Date(f.submittedAt).toLocaleDateString() : '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
+          {tab === 'feedback' && (
+            <div className="card">
+              <div className="card-header">
+                <h3>Feedback Received ({feedbacks.length})</h3>
+              </div>
+              {feedbacks.length === 0 ? (
+                <div className="empty-state"><p>No feedback received yet.</p></div>
+              ) : (
+                <div className="table-wrapper">
+                  <table className="table">
+                    <thead>
+                      <tr><th>Training</th><th>Participant</th><th>Trainer Rating</th><th>Subject Rating</th><th>Comments</th><th>Date</th></tr>
+                    </thead>
+                    <tbody>
+                      {feedbacks.map(f => (
+                        <tr key={f.id}>
+                          <td><strong>{f.trainingTitle}</strong></td>
+                          <td>{f.anonymous ? <span className="badge badge-gray">Anonymous</span> : f.participantName}</td>
+                          <td><Stars v={f.trainerRating} /></td>
+                          <td><Stars v={f.subjectRating} /></td>
+                          <td style={{ maxWidth: 200, fontSize: 12, color: 'var(--text-secondary)' }}>{f.comments || '-'}</td>
+                          <td>{fmtDate(f.submittedAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -8,10 +8,9 @@ const { sequelize, connectDB } = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const trainingRoutes = require('./routes/trainingRoutes');
-const profileRoutes = require('./routes/profileRoutes');
-const deleteRoutes = require('./routes/deleteRoutes');
 const enrollmentRoutes = require('./routes/enrollmentRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
+const trainerRoutes = require('./routes/trainerRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -26,24 +25,26 @@ app.use((req, res, next) => {
   next();
 });
 
+// ROUTE MOUNTING (order matters — more specific first)
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api', trainingRoutes);
-app.use('/api', profileRoutes);
-app.use('/api', deleteRoutes);
+app.use('/api/trainer', trainerRoutes);
 app.use('/api/participant', enrollmentRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/trainings', trainingRoutes);
 
+// Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Error handler
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// Global 404 handler with detailed logging
+// Global 404 fallback with detailed logging
 app.use((req, res) => {
   console.error('❌ ENDPOINT NOT FOUND:', req.method, req.originalUrl);
   res.status(404).json({
@@ -56,7 +57,9 @@ app.use((req, res) => {
 const startServer = async () => {
   try {
     await connectDB();
-    
+    await sequelize.sync({ alter: false });
+
+    // Create default admin if not exists
     const adminExists = await User.findOne({ where: { email: 'admin@test.com' } });
     if (!adminExists) {
       const hashedPassword = await bcrypt.hash('admin123', 10);
@@ -73,14 +76,14 @@ const startServer = async () => {
     }
 
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
-      console.log(`📋 Endpoints:`);
-      console.log(`   POST /api/auth/login`);
-      console.log(`   POST /api/auth/register`);
-      console.log(`   POST /api/admin/create-trainer`);
-      console.log(`   POST /api/admin/trainings`);
-      console.log(`   GET /api/trainings`);
-      console.log(`   GET /api/trainers`);
+      console.log(`🚀 WAVE INIT LMS Server running on http://localhost:${PORT}`);
+      console.log(`📋 Mounted routes:`);
+      console.log(`   /api/auth      → auth routes`);
+      console.log(`   /api/admin     → admin routes`);
+      console.log(`   /api/trainer   → trainer routes`);
+      console.log(`   /api/participant → enrollment routes`);
+      console.log(`   /api/feedback  → feedback routes`);
+      console.log(`   /api/trainings → training routes`);
     });
   } catch (error) {
     console.error('Failed to start server:', error.message);
@@ -88,7 +91,6 @@ const startServer = async () => {
   }
 };
 
-// Only start server if run directly (not when imported for tests)
 if (require.main === module) {
   startServer();
 }

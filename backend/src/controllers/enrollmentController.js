@@ -1,4 +1,4 @@
-const { Enrollment, Training, User } = require('../models');
+const { Enrollment, Training, User, Feedback } = require('../models');
 
 const enrollInTraining = async (req, res) => {
   try {
@@ -10,11 +10,7 @@ const enrollInTraining = async (req, res) => {
     }
 
     const training = await Training.findByPk(trainingId, {
-      include: [{
-        model: User,
-        as: 'trainer',
-        attributes: ['name']
-      }]
+      include: [{ model: User, as: 'trainer', attributes: ['name'] }]
     });
 
     if (!training) {
@@ -33,25 +29,58 @@ const enrollInTraining = async (req, res) => {
       const enrolledCount = await Enrollment.count({
         where: { trainingId, status: 'ENROLLED' }
       });
-
       if (enrolledCount >= training.capacity) {
         return res.status(400).json({ error: 'Training is full' });
       }
     }
 
-    await Enrollment.create({
+    const enrollment = await Enrollment.create({
       participantId,
       trainingId,
       status: 'ENROLLED'
     });
 
-    res.status(201).json({ message: 'Enrolled successfully' });
+    res.status(201).json({ message: 'Enrolled successfully', enrollment });
   } catch (error) {
     console.error('Enroll error:', error.message);
     res.status(500).json({ error: 'Server error during enrollment' });
   }
 };
 
+// GET /api/participant/enrollments  - returns enrollment objects with training details
+const getEnrollments = async (req, res) => {
+  try {
+    const participantId = req.user.id;
+
+    const enrollments = await Enrollment.findAll({
+      where: { participantId, status: 'ENROLLED' },
+      include: [{
+        model: Training,
+        as: 'training',
+        include: [{ model: User, as: 'trainer', attributes: ['id', 'name'] }]
+      }]
+    });
+
+    const formattedEnrollments = enrollments.map(e => ({
+      id: e.id,
+      trainingId: e.training?.id,
+      trainingTitle: e.training?.title,
+      trainerName: e.training?.trainer?.name || 'TBA',
+      startDate: e.training?.startDate,
+      endDate: e.training?.endDate,
+      capacity: e.training?.capacity,
+      status: e.status,
+      enrolledAt: e.enrolled_at || e.createdAt
+    }));
+
+    res.json({ enrollments: formattedEnrollments });
+  } catch (error) {
+    console.error('Get enrollments error:', error.message);
+    res.status(500).json({ error: 'Server error fetching enrollments' });
+  }
+};
+
+// Legacy: returns trainings array format
 const getMyTrainings = async (req, res) => {
   try {
     const participantId = req.user.id;
@@ -61,24 +90,21 @@ const getMyTrainings = async (req, res) => {
       include: [{
         model: Training,
         as: 'training',
-        include: [{
-          model: User,
-          as: 'trainer',
-          attributes: ['id', 'name']
-        }]
+        include: [{ model: User, as: 'trainer', attributes: ['id', 'name'] }]
       }]
     });
 
     const myTrainings = enrollments.map(e => ({
-      id: e.training.id,
-      title: e.training.title,
-      description: e.training.description,
-      schedule: e.training.schedule,
-      capacity: e.training.capacity,
-      trainerId: e.training.trainerId,
-      trainerName: e.training.trainer?.name || 'TBA',
+      id: e.training?.id,
+      title: e.training?.title,
+      description: e.training?.description,
+      startDate: e.training?.startDate,
+      endDate: e.training?.endDate,
+      capacity: e.training?.capacity,
+      trainerId: e.training?.trainerId,
+      trainerName: e.training?.trainer?.name || 'TBA',
       status: e.status,
-      enrolledAt: e.enrolled_at
+      enrolledAt: e.enrolled_at || e.createdAt
     }));
 
     res.json({ trainings: myTrainings });
@@ -113,6 +139,7 @@ const cancelEnrollment = async (req, res) => {
 
 module.exports = {
   enrollInTraining,
+  getEnrollments,
   getMyTrainings,
   cancelEnrollment
 };

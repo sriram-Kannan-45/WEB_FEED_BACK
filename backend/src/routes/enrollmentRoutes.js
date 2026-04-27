@@ -5,6 +5,7 @@ const roleMiddleware = require('../middleware/roles');
 
 const router = express.Router();
 
+// POST /api/participant/enroll
 router.post(
   '/enroll',
   authenticateToken,
@@ -12,6 +13,15 @@ router.post(
   (req, res) => enrollmentController.enrollInTraining(req, res)
 );
 
+// GET /api/participant/enrollments  (spec says /enrollments)
+router.get(
+  '/enrollments',
+  authenticateToken,
+  roleMiddleware('PARTICIPANT'),
+  (req, res) => enrollmentController.getEnrollments(req, res)
+);
+
+// GET /api/participant/my-trainings  (legacy alias)
 router.get(
   '/my-trainings',
   authenticateToken,
@@ -19,6 +29,7 @@ router.get(
   (req, res) => enrollmentController.getMyTrainings(req, res)
 );
 
+// DELETE /api/participant/enroll/:trainingId
 router.delete(
   '/enroll/:trainingId',
   authenticateToken,

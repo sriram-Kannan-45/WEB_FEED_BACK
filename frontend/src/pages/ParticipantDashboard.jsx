@@ -3,348 +3,360 @@ import { useState, useEffect } from 'react'
 const API = 'http://localhost:3001/api'
 
 function ParticipantDashboard({ user, onLogout }) {
-  const [activeTab, setActiveTab] = useState('available')
-  
+  const [tab, setTab] = useState('available')
   const [trainings, setTrainings] = useState([])
   const [enrollments, setEnrollments] = useState([])
   const [feedbacks, setFeedbacks] = useState([])
-  
-  const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
+  const [msg, setMsg] = useState('')
+  const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
+  const [feedbackModal, setFeedbackModal] = useState(null)
+  const [fbForm, setFbForm] = useState({ trainerRating: 0, subjectRating: 0, comments: '', anonymous: false })
 
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
-  const [selectedTraining, setSelectedTraining] = useState(null)
-  const [feedbackForm, setFeedbackForm] = useState({ trainerRating: 0, subjectRating: 0, comments: '' })
+  const auth = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` })
+
+  const notify = (m, isErr = false) => {
+    if (isErr) setErr(m); else setMsg(m)
+    setTimeout(() => { setErr(''); setMsg('') }, 4000)
+  }
 
   useEffect(() => {
-    fetchData()
+    fetchAll()
   }, [])
 
-  const getAuthHeader = () => ({
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${user.token}`,
-  })
-
-  const fetchData = async () => {
-    await Promise.all([fetchTrainings(), fetchEnrollments(), fetchFeedbacks()])
-  }
+  const fetchAll = () => { fetchTrainings(); fetchEnrollments(); fetchFeedbacks() }
 
   const fetchTrainings = async () => {
     try {
-      const headers = getAuthHeader()
-      const response = await fetch(`${API}/trainings`, { headers })
-      const data = await response.json()
-      console.log('Participant trainings:', response.status, data)
-      
-      if (Array.isArray(data)) {
-        setTrainings(data)
-      } else if (data.trainings) {
-        setTrainings(data.trainings)
-      } else {
-        setTrainings([])
-      }
-    } catch (err) { console.error(err) }
+      const r = await fetch(`${API}/trainings`, { headers: auth() })
+      const d = await r.json()
+      setTrainings(Array.isArray(d) ? d : (d.trainings || []))
+    } catch {}
   }
 
   const fetchEnrollments = async () => {
     try {
-      const response = await fetch(`${API}/participant/enrollments`, { headers: getAuthHeader() })
-      const data = await response.json()
-      if (data.enrollments) setEnrollments(data.enrollments)
-    } catch (err) { console.error(err) }
+      const r = await fetch(`${API}/participant/enrollments`, { headers: auth() })
+      const d = await r.json()
+      setEnrollments(d.enrollments || [])
+    } catch {}
   }
 
   const fetchFeedbacks = async () => {
     try {
-      const response = await fetch(`${API}/feedback/my-feedbacks`, { headers: getAuthHeader() })
-      const data = await response.json()
-      if (data.feedbacks) setFeedbacks(data.feedbacks)
-    } catch (err) { console.error(err) }
+      const r = await fetch(`${API}/feedback/my-feedbacks`, { headers: auth() })
+      const d = await r.json()
+      setFeedbacks(d.feedbacks || [])
+    } catch {}
   }
 
   const handleEnroll = async (trainingId) => {
     setLoading(true)
     try {
-      const response = await fetch(`${API}/participant/enroll`, {
-        method: 'POST',
-        headers: getAuthHeader(),
-        body: JSON.stringify({ trainingId })
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to enroll')
-      }
-
-      setMessage('Enrolled successfully')
-      fetchTrainings()
-      fetchEnrollments()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+      const r = await fetch(`${API}/participant/enroll`, { method: 'POST', headers: auth(), body: JSON.stringify({ trainingId }) })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error)
+      notify('Enrolled successfully')
+      fetchAll()
+    } catch (e) { notify(e.message, true) }
+    finally { setLoading(false) }
   }
 
-  const openFeedbackModal = (training) => {
-    setSelectedTraining(training)
-    setFeedbackForm({ trainerRating: 0, subjectRating: 0, comments: '' })
-    setShowFeedbackModal(true)
+  const handleCancelEnrollment = async (trainingId) => {
+    if (!confirm('Cancel this enrollment?')) return
+    try {
+      const r = await fetch(`${API}/participant/enroll/${trainingId}`, { method: 'DELETE', headers: auth() })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error)
+      notify('Enrollment cancelled')
+      fetchAll()
+    } catch (e) { notify(e.message, true) }
+  }
+
+  const openFeedback = (enrollment) => {
+    setFeedbackModal(enrollment)
+    setFbForm({ trainerRating: 0, subjectRating: 0, comments: '', anonymous: false })
   }
 
   const handleSubmitFeedback = async (e) => {
     e.preventDefault()
-    if (feedbackForm.trainerRating === 0 || feedbackForm.subjectRating === 0) {
-      setError('Please select both ratings')
-      return
-    }
+    if (!fbForm.trainerRating || !fbForm.subjectRating) { notify('Please rate both trainer and subject', true); return }
     setLoading(true)
-
     try {
-      const response = await fetch(`${API}/feedback`, {
-        method: 'POST',
-        headers: getAuthHeader(),
-        body: JSON.stringify({
-          trainingId: selectedTraining.id,
-          trainerRating: feedbackForm.trainerRating,
-          subjectRating: feedbackForm.subjectRating,
-          comments: feedbackForm.comments
-        })
+      const r = await fetch(`${API}/feedback`, {
+        method: 'POST', headers: auth(),
+        body: JSON.stringify({ trainingId: feedbackModal.trainingId, ...fbForm })
       })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to submit feedback')
-      }
-
-      setMessage('Feedback submitted successfully')
-      setShowFeedbackModal(false)
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error)
+      notify('Feedback submitted')
+      setFeedbackModal(null)
       fetchFeedbacks()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+    } catch (e) { notify(e.message, true) }
+    finally { setLoading(false) }
   }
 
-  const formatDate = (d) => d ? new Date(d).toLocaleString() : '-'
+  const isEnrolled = (id) => enrollments.some(e => e.trainingId === id)
+  const hasFeedback = (id) => feedbacks.some(f => f.trainingId === id)
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'
+  const initials = (name) => name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2) : 'PT'
 
-  const isEnrolled = (trainingId) => {
-    return enrollments.some(e => e.trainingId === trainingId)
-  }
+  const StarPicker = ({ value, onChange }) => (
+    <div className="stars">
+      {[1,2,3,4,5].map(s => (
+        <span
+          key={s}
+          className={`star interactive ${s <= value ? 'filled' : ''}`}
+          style={{ fontSize: 28 }}
+          onClick={() => onChange(s)}
+        >&#9733;</span>
+      ))}
+    </div>
+  )
 
-  const hasFeedback = (trainingId) => {
-    return feedbacks.some(f => f.trainingId === trainingId)
-  }
+  const Stars = ({ v }) => <span className="stars">{[1,2,3,4,5].map(s => <span key={s} className={`star ${s<=v?'filled':''}`}>&#9733;</span>)}</span>
 
-  const tabs = [
-    { key: 'available', label: 'Available' },
+  const TABS = [
+    { key: 'available', label: 'Available Trainings' },
     { key: 'myEnrollments', label: 'My Enrollments' },
     { key: 'feedback', label: 'Give Feedback' },
+    { key: 'myFeedbacks', label: 'My Feedbacks' },
   ]
 
   return (
     <div>
-      <div className="navbar">
-        <h1>WAVE INIT LMS</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <span>{user.email}</span>
-          <button onClick={onLogout}>Logout</button>
+      <nav className="navbar">
+        <div className="navbar-brand">
+          <div className="navbar-logo">W</div>
+          <h1>WAVE INIT LMS</h1>
+          <span className="navbar-badge">Participant</span>
         </div>
-      </div>
-
-      <div className="container dashboard">
-        <div className="tabs">
-          {tabs.map(tab => (
-            <button
-              key={tab.key}
-              className={`tab ${activeTab === tab.key ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {error && <div className="error">{error}</div>}
-        {message && <div className="success">{message}</div>}
-
-        {activeTab === 'available' && (
-          <div className="card">
-            <h3>Available Trainings</h3>
-            {trainings.length === 0 ? (
-              <p>No trainings available</p>
-            ) : (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Title</th>
-                    <th>Trainer</th>
-                    <th>Schedule</th>
-                    <th>Capacity</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {trainings.map(t => (
-                    <tr key={t.id}>
-                      <td>{t.title}</td>
-                      <td>{t.trainerName || '-'}</td>
-                      <td>{formatDate(t.startDate)} → {formatDate(t.endDate)}</td>
-                      <td>{t.capacity || 'Unlimited'}</td>
-                      <td>
-                        {isEnrolled(t.id) ? (
-                          <span style={{ color: 'green' }}>Enrolled</span>
-                        ) : (
-                          <button 
-                            className="btn btn-sm btn-primary" 
-                            onClick={() => handleEnroll(t.id)}
-                            disabled={loading}
-                          >
-                            Enroll
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'myEnrollments' && (
-          <div className="card">
-            <h3>My Enrollments</h3>
-            {enrollments.length === 0 ? (
-              <p>No enrollments</p>
-            ) : (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Training</th>
-                    <th>Trainer</th>
-                    <th>Schedule</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {enrollments.map(e => (
-                    <tr key={e.id}>
-                      <td>{e.trainingTitle}</td>
-                      <td>{e.trainerName || '-'}</td>
-                      <td>{formatDate(e.startDate)} → {formatDate(e.endDate)}</td>
-                      <td>Enrolled</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'feedback' && (
-          <div className="card">
-            <h3>Give Feedback</h3>
-            {enrollments.length === 0 ? (
-              <p>Enroll in a training first</p>
-            ) : (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Training</th>
-                    <th>Trainer</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {enrollments.map(e => (
-                    <tr key={e.id}>
-                      <td>{e.trainingTitle}</td>
-                      <td>{e.trainerName || '-'}</td>
-                      <td>
-                        {hasFeedback(e.trainingId) ? (
-                          <span style={{ color: 'green' }}>Submitted</span>
-                        ) : new Date() >= new Date(e.startDate) ? (
-                          <button 
-                            className="btn btn-sm btn-primary" 
-                            onClick={() => openFeedbackModal(e)}
-                          >
-                            Give Feedback
-                          </button>
-                        ) : (
-                          <span style={{ color: '#999' }}>Not started</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
-
-        {showFeedbackModal && (
-          <div className="modal-overlay">
-            <div className="modal">
-              <h3>Feedback for {selectedTraining?.title}</h3>
-              <form onSubmit={handleSubmitFeedback}>
-                <div className="form-group">
-                  <label>Trainer Rating</label>
-                  <div>
-                    {[1, 2, 3, 4, 5].map(star => (
-                      <span
-                        key={star}
-                        style={{ 
-                          fontSize: '24px', 
-                          cursor: 'pointer',
-                          color: star <= feedbackForm.trainerRating ? '#ffc107' : '#ddd'
-                        }}
-                        onClick={() => setFeedbackForm({ ...feedbackForm, trainerRating: star })}
-                      >
-                        ★
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>Subject Rating</label>
-                  <div>
-                    {[1, 2, 3, 4, 5].map(star => (
-                      <span
-                        key={star}
-                        style={{ 
-                          fontSize: '24px', 
-                          cursor: 'pointer',
-                          color: star <= feedbackForm.subjectRating ? '#ffc107' : '#ddd'
-                        }}
-                        onClick={() => setFeedbackForm({ ...feedbackForm, subjectRating: star })}
-                      >
-                        ★
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>Comments (optional)</label>
-                  <textarea
-                    value={feedbackForm.comments}
-                    onChange={(e) => setFeedbackForm({ ...feedbackForm, comments: e.target.value })}
-                    placeholder="Your feedback"
-                  />
-                </div>
-                <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-                  <button type="button" className="btn" onClick={() => setShowFeedbackModal(false)}>Cancel</button>
-                  <button type="submit" className="btn btn-primary" disabled={loading}>Submit</button>
-                </div>
-              </form>
+        <div className="navbar-right">
+          <div className="user-chip">
+            <div className="user-avatar">{initials(user.name)}</div>
+            <div className="user-chip-info">
+              <span>{user.name || 'Participant'}</span>
+              <small>{user.email}</small>
             </div>
           </div>
-        )}
+          <button className="btn btn-sm btn-logout" onClick={onLogout}>Sign Out</button>
+        </div>
+      </nav>
+
+      <div className="container">
+        <div className="dashboard">
+          <div className="stats-grid">
+            <div className="stat-card">
+              <div className="stat-label">Available</div>
+              <div className="stat-value">{trainings.length}</div>
+            </div>
+            <div className="stat-card green">
+              <div className="stat-label">Enrolled</div>
+              <div className="stat-value">{enrollments.length}</div>
+            </div>
+            <div className="stat-card purple">
+              <div className="stat-label">Feedbacks Given</div>
+              <div className="stat-value">{feedbacks.length}</div>
+            </div>
+          </div>
+
+          <div className="tabs">
+            {TABS.map(t => (
+              <button key={t.key} className={`tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {err && <div className="error">{err}</div>}
+          {msg && <div className="success">{msg}</div>}
+
+          {/* AVAILABLE TRAININGS */}
+          {tab === 'available' && (
+            <div>
+              <div className="section-header">
+                <h3>Available Training Programs</h3>
+              </div>
+              {trainings.length === 0 ? (
+                <div className="card"><div className="empty-state"><p>No trainings available right now.</p></div></div>
+              ) : (
+                <div className="training-grid">
+                  {trainings.map(t => {
+                    const enrolled = isEnrolled(t.id)
+                    const full = t.isFull
+                    const pct = t.capacity ? Math.round(((t.enrolledCount||0) / t.capacity) * 100) : null
+                    return (
+                      <div key={t.id} className="training-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                          <div className="training-card-title" style={{ flex: 1, paddingRight: 10 }}>{t.title}</div>
+                          {enrolled && <span className="badge badge-green">Enrolled</span>}
+                          {full && !enrolled && <span className="badge badge-red">Full</span>}
+                        </div>
+                        <div className="training-card-desc">{t.description || 'No description available.'}</div>
+                        <div className="training-meta">
+                          <div className="meta-item"><span className="meta-key">Instructor:</span><span>{t.trainerName || 'TBA'}</span></div>
+                          <div className="meta-item"><span className="meta-key">Dates:</span><span>{fmtDate(t.startDate)} - {fmtDate(t.endDate)}</span></div>
+                          <div className="meta-item"><span className="meta-key">Enrolled:</span><span>{t.enrolledCount ?? 0} {t.capacity ? `/ ${t.capacity}` : ''}</span></div>
+                        </div>
+                        {pct !== null && (
+                          <div style={{ marginBottom: 14 }}>
+                            <div className="progress-bar"><div className="progress-fill" style={{ width: `${pct}%`, background: pct > 80 ? 'var(--danger)' : undefined }} /></div>
+                          </div>
+                        )}
+                        {!enrolled && !full && (
+                          <button className="btn btn-primary btn-full" onClick={() => handleEnroll(t.id)} disabled={loading}>
+                            Enroll in Program
+                          </button>
+                        )}
+                        {enrolled && (
+                          <button className="btn btn-full" style={{ color: 'var(--text-secondary)' }} disabled>Already Enrolled</button>
+                        )}
+                        {full && !enrolled && (
+                          <button className="btn btn-full" disabled style={{ opacity: 0.5 }}>Training is Full</button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* MY ENROLLMENTS */}
+          {tab === 'myEnrollments' && (
+            <div className="card">
+              <div className="card-header">
+                <h3>My Enrollments ({enrollments.length})</h3>
+              </div>
+              {enrollments.length === 0 ? (
+                <div className="empty-state"><p>Not enrolled in any training yet. Browse available ones!</p></div>
+              ) : (
+                <div className="table-wrapper">
+                  <table className="table">
+                    <thead><tr><th>Training</th><th>Trainer</th><th>Start Date</th><th>End Date</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody>
+                      {enrollments.map(e => (
+                        <tr key={e.id}>
+                          <td><strong>{e.trainingTitle}</strong></td>
+                          <td>{e.trainerName || '-'}</td>
+                          <td>{fmtDate(e.startDate)}</td>
+                          <td>{fmtDate(e.endDate)}</td>
+                          <td><span className="badge badge-green">Enrolled</span></td>
+                          <td>
+                            <button className="btn btn-sm btn-danger" onClick={() => handleCancelEnrollment(e.trainingId)}>Cancel</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* GIVE FEEDBACK */}
+          {tab === 'feedback' && (
+            <div className="card">
+              <div className="card-header">
+                <h3>Submit Feedback</h3>
+              </div>
+              {enrollments.length === 0 ? (
+                <div className="empty-state"><p>Enroll in a training first to leave feedback.</p></div>
+              ) : (
+                <div className="table-wrapper">
+                  <table className="table">
+                    <thead><tr><th>Training</th><th>Trainer</th><th>Start Date</th><th>Action</th></tr></thead>
+                    <tbody>
+                      {enrollments.map(e => {
+                        const started = new Date() >= new Date(e.startDate)
+                        const submitted = hasFeedback(e.trainingId)
+                        return (
+                          <tr key={e.id}>
+                            <td><strong>{e.trainingTitle}</strong></td>
+                            <td>{e.trainerName || '-'}</td>
+                            <td>{fmtDate(e.startDate)}</td>
+                            <td>
+                              {submitted
+                                ? <span className="badge badge-green">Submitted</span>
+                                : started
+                                  ? <button className="btn btn-sm btn-primary" onClick={() => openFeedback(e)}>Give Feedback</button>
+                                  : <span className="badge badge-gray">Not started</span>
+                              }
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* MY FEEDBACKS */}
+          {tab === 'myFeedbacks' && (
+            <div className="card">
+              <div className="card-header">
+                <h3>My Submitted Feedbacks ({feedbacks.length})</h3>
+              </div>
+              {feedbacks.length === 0 ? (
+                <div className="empty-state"><p>No feedback submitted yet.</p></div>
+              ) : (
+                <div className="table-wrapper">
+                  <table className="table">
+                    <thead><tr><th>Training</th><th>Trainer Rating</th><th>Subject Rating</th><th>Comments</th><th>Date</th></tr></thead>
+                    <tbody>
+                      {feedbacks.map(f => (
+                        <tr key={f.id}>
+                          <td><strong>{f.trainingTitle}</strong></td>
+                          <td><Stars v={f.trainerRating} /></td>
+                          <td><Stars v={f.subjectRating} /></td>
+                          <td style={{ fontSize: 12, color: 'var(--text-secondary)', maxWidth: 200 }}>{f.comments || '-'}</td>
+                          <td>{fmtDate(f.submittedAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* FEEDBACK MODAL */}
+      {feedbackModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>Feedback for "{feedbackModal.trainingTitle}"</h3>
+              <button className="modal-close" onClick={() => setFeedbackModal(null)}>&#10005;</button>
+            </div>
+            <form onSubmit={handleSubmitFeedback}>
+              <div className="form-group">
+                <label className="form-label">Trainer Rating</label>
+                <StarPicker value={fbForm.trainerRating} onChange={v => setFbForm(p => ({ ...p, trainerRating: v }))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Subject Rating</label>
+                <StarPicker value={fbForm.subjectRating} onChange={v => setFbForm(p => ({ ...p, subjectRating: v }))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Comments (optional)</label>
+                <textarea className="form-control" value={fbForm.comments} onChange={e => setFbForm(p => ({ ...p, comments: e.target.value }))} placeholder="Share your experience..." />
+              </div>
+              <div className="toggle-row">
+                <input type="checkbox" id="anon-toggle" checked={fbForm.anonymous} onChange={e => setFbForm(p => ({ ...p, anonymous: e.target.checked }))} />
+                <label htmlFor="anon-toggle">Submit anonymously</label>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn" onClick={() => setFeedbackModal(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? 'Submitting...' : 'Submit Feedback'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

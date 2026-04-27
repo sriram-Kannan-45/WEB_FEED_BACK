@@ -1,43 +1,23 @@
 const { Training, User, Enrollment } = require('../models');
+const { Op } = require('sequelize');
 
 const createTraining = async (req, res) => {
   try {
     const { title, description, trainerId, startDate, endDate, capacity } = req.body;
 
-    if (!title) {
-      return res.status(422).json({ error: 'Title is required' });
-    }
+    if (!title) return res.status(422).json({ error: 'Title is required' });
+    if (!trainerId) return res.status(422).json({ error: 'Trainer ID is required' });
+    if (!startDate || !endDate) return res.status(422).json({ error: 'Start and end dates are required' });
 
-    if (!trainerId) {
-      return res.status(422).json({ error: 'Trainer ID is required' });
-    }
-
-    if (!startDate || !endDate) {
-      return res.status(422).json({ error: 'Start date and end date are required' });
-    }
-
-    const trainer = await User.findOne({
-      where: { id: trainerId, role: 'TRAINER' }
-    });
-
-    if (!trainer) {
-      return res.status(400).json({ error: 'Invalid trainer ID or user is not a TRAINER' });
-    }
+    const trainer = await User.findOne({ where: { id: trainerId, role: 'TRAINER' } });
+    if (!trainer) return res.status(400).json({ error: 'Invalid trainer ID or user is not a TRAINER' });
 
     const start = new Date(startDate);
     const end = new Date(endDate);
 
-    if (isNaN(start.getTime())) {
-      return res.status(422).json({ error: 'Invalid start date format' });
-    }
-
-    if (isNaN(end.getTime())) {
-      return res.status(422).json({ error: 'Invalid end date format' });
-    }
-
-    if (end <= start) {
-      return res.status(422).json({ error: 'End date must be after start date' });
-    }
+    if (isNaN(start.getTime())) return res.status(422).json({ error: 'Invalid start date format' });
+    if (isNaN(end.getTime())) return res.status(422).json({ error: 'Invalid end date format' });
+    if (end <= start) return res.status(422).json({ error: 'End date must be after start date' });
 
     const training = await Training.create({
       title,
@@ -75,36 +55,43 @@ const getAllTrainings = async (req, res) => {
 
     console.log('📋 getAllTrainings called, user:', userId, 'role:', userRole);
 
+    // Fetch all trainings WITHOUT filtering the trainer include
+    // Use LEFT JOIN without WHERE on the joined table to avoid filtering out rows
     const trainings = await Training.findAll({
       include: [
         {
           model: User,
           as: 'trainer',
           attributes: ['id', 'name', 'email'],
-          where: { role: 'TRAINER' },
-          required: false
+          required: false   // true LEFT JOIN — no WHERE on trainer
         }
       ],
-      order: [['createdAt', 'DESC']]
+      order: [['id', 'DESC']]  // Use primary key ordering (always safe)
     });
 
-    console.log('📋 Raw trainings from DB:', trainings.length, trainings.map(t => t.title));
+    console.log('📋 Raw trainings from DB:', trainings.length);
 
-    if (trainings.length === 0) {
-      return res.json({ count: 0, trainings: [] });
-    }
-
+    // Format the results
     const formattedTrainings = await Promise.all(trainings.map(async t => {
-      const enrolledCount = await Enrollment.count({
-        where: { trainingId: t.id, status: 'ENROLLED' }
-      });
+      let enrolledCount = 0;
+      try {
+        enrolledCount = await Enrollment.count({
+          where: { trainingId: t.id, status: 'ENROLLED' }
+        });
+      } catch (e) {
+        console.error('Count error for training', t.id, e.message);
+      }
 
       let isEnrolled = false;
       if (userId && userRole === 'PARTICIPANT') {
-        const enrollment = await Enrollment.findOne({
-          where: { participantId: userId, trainingId: t.id, status: 'ENROLLED' }
-        });
-        isEnrolled = !!enrollment;
+        try {
+          const enrollment = await Enrollment.findOne({
+            where: { participantId: userId, trainingId: t.id, status: 'ENROLLED' }
+          });
+          isEnrolled = !!enrollment;
+        } catch (e) {
+          console.error('Enrollment check error:', e.message);
+        }
       }
 
       return {
@@ -120,16 +107,14 @@ const getAllTrainings = async (req, res) => {
         enrolledCount,
         availableSeats: t.capacity ? (t.capacity - enrolledCount) : null,
         isEnrolled,
-        isFull: t.capacity ? enrolledCount >= t.capacity : false,
-        createdBy: t.createdBy,
-        createdAt: t.created_at
+        isFull: t.capacity ? enrolledCount >= t.capacity : false
       };
     }));
 
-    console.log('📋 Returning trainings:', formattedTrainings.length);
+    console.log('📋 Returning', formattedTrainings.length, 'trainings');
     res.json(formattedTrainings);
   } catch (error) {
-    console.error('Get trainings error:', error.message);
+    console.error('Get trainings error:', error.message, error.stack);
     res.status(500).json({ error: 'Server error fetching trainings' });
   }
 };
@@ -139,18 +124,10 @@ const getTrainingById = async (req, res) => {
     const { id } = req.params;
 
     const training = await Training.findByPk(id, {
-      include: [
-        {
-          model: User,
-          as: 'trainer',
-          attributes: ['id', 'name', 'email']
-        }
-      ]
+      include: [{ model: User, as: 'trainer', attributes: ['id', 'name', 'email'], required: false }]
     });
 
-    if (!training) {
-      return res.status(404).json({ error: 'Training not found' });
-    }
+    if (!training) return res.status(404).json({ error: 'Training not found' });
 
     res.json({
       id: training.id,
@@ -158,7 +135,8 @@ const getTrainingById = async (req, res) => {
       description: training.description,
       trainerId: training.trainerId,
       trainerName: training.trainer ? training.trainer.name : null,
-      schedule: training.schedule,
+      startDate: training.startDate,
+      endDate: training.endDate,
       capacity: training.capacity
     });
   } catch (error) {
@@ -167,8 +145,4 @@ const getTrainingById = async (req, res) => {
   }
 };
 
-module.exports = {
-  createTraining,
-  getAllTrainings,
-  getTrainingById
-};
+module.exports = { createTraining, getAllTrainings, getTrainingById };

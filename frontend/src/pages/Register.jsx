@@ -4,41 +4,27 @@ import { useNavigate } from 'react-router-dom'
 const API = 'http://localhost:3001/api'
 
 function Register({ onLogin }) {
-  const navigate = useNavigate()
-  const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '', phone: '' })
+  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '' })
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    setSuccess('')
-
-    if (form.password !== form.confirmPassword) {
-      setError('Passwords do not match')
-      return
-    }
-
     setLoading(true)
-
     try {
-      const response = await fetch(`${API}/auth/register`, {
+      const res = await fetch(`${API}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form)
       })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Registration failed')
-      }
-
-      setSuccess('Registration successful! Please login.')
-      setTimeout(() => {
-        navigate('/login')
-      }, 1500)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Registration failed')
+      localStorage.setItem('user', JSON.stringify(data))
+      onLogin(data)
+      navigate('/participant')
     } catch (err) {
       setError(err.message)
     } finally {
@@ -47,78 +33,45 @@ function Register({ onLogin }) {
   }
 
   return (
-    <div className="container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-      <div className="card" style={{ width: '100%', maxWidth: '400px' }}>
-        <h2 style={{ marginBottom: '24px', textAlign: 'center' }}>WAVE INIT LMS</h2>
-        <p style={{ marginBottom: '24px', textAlign: 'center', color: '#666' }}>Register as Participant</p>
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-logo">
+          <div className="login-logo-mark">W</div>
+          <h1>WAVE INIT LMS</h1>
+          <p>Create Participant Account</p>
+        </div>
 
-        {error && <div className="error">{error}</div>}
-        {success && <div className="success">{success}</div>}
+        {error && <div className="alert alert-error">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Name</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              required
-              placeholder="Your name"
-            />
+            <label className="form-label">Full Name</label>
+            <input id="reg-name" className="form-control" type="text" value={form.name}
+              onChange={e => set('name', e.target.value)} required placeholder="Your full name" />
           </div>
-
           <div className="form-group">
-            <label>Email</label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              required
-              placeholder="Your email"
-            />
+            <label className="form-label">Email Address</label>
+            <input id="reg-email" className="form-control" type="email" value={form.email}
+              onChange={e => set('email', e.target.value)} required placeholder="your@email.com" />
           </div>
-
           <div className="form-group">
-            <label>Phone</label>
-            <input
-              type="text"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              required
-              placeholder="Phone number"
-            />
+            <label className="form-label">Phone Number</label>
+            <input id="reg-phone" className="form-control" type="tel" value={form.phone}
+              onChange={e => set('phone', e.target.value)} required placeholder="e.g. 9876543210" />
           </div>
-
           <div className="form-group">
-            <label>Password</label>
-            <input
-              type="password"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              required
-              placeholder="Create a password"
-            />
+            <label className="form-label">Password</label>
+            <input id="reg-password" className="form-control" type="password" value={form.password}
+              onChange={e => set('password', e.target.value)} required placeholder="Minimum 6 characters" minLength={6} />
           </div>
-
-          <div className="form-group">
-            <label>Confirm Password</label>
-            <input
-              type="password"
-              value={form.confirmPassword}
-              onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-              required
-              placeholder="Confirm your password"
-            />
-          </div>
-
-          <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%' }}>
-            {loading ? 'Registering...' : 'Register'}
+          <button id="reg-submit" type="submit" className="btn btn-primary btn-full" disabled={loading}>
+            {loading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
 
-        <a href="/login" className="link">
-          Already have an account? Sign In
-        </a>
+        <p className="register-link" style={{ marginTop: 16 }}>
+          Already registered? <span onClick={() => navigate('/login')}>Sign In</span>
+        </p>
       </div>
     </div>
   )

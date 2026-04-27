@@ -8,6 +8,7 @@ const roleMiddleware = require('../middleware/roles');
 
 const router = express.Router();
 
+// POST /api/admin/create-trainer
 router.post(
   '/create-trainer',
   authenticateToken,
@@ -19,6 +20,15 @@ router.post(
   (req, res) => authController.createTrainer(req, res)
 );
 
+// GET /api/admin/trainers
+router.get(
+  '/trainers',
+  authenticateToken,
+  roleMiddleware('ADMIN'),
+  (req, res) => authController.getTrainers(req, res)
+);
+
+// PUT /api/admin/trainers/:id
 router.put(
   '/trainers/:id',
   authenticateToken,
@@ -26,12 +36,15 @@ router.put(
   (req, res) => adminController.updateTrainer(req, res)
 );
 
-router.get(
-  '/trainers',
+// DELETE /api/admin/trainers/:id
+router.delete(
+  '/trainers/:id',
   authenticateToken,
-  (req, res) => authController.getTrainers(req, res)
+  roleMiddleware('ADMIN'),
+  (req, res) => adminController.deleteTrainer(req, res)
 );
 
+// GET /api/admin/trainings
 router.get(
   '/trainings',
   authenticateToken,
@@ -39,6 +52,7 @@ router.get(
   (req, res) => trainingController.getAllTrainings(req, res)
 );
 
+// POST /api/admin/trainings
 router.post(
   '/trainings',
   authenticateToken,
@@ -50,6 +64,7 @@ router.post(
   (req, res) => trainingController.createTraining(req, res)
 );
 
+// PUT /api/admin/trainings/:id
 router.put(
   '/trainings/:id',
   authenticateToken,
@@ -57,11 +72,28 @@ router.put(
   (req, res) => adminController.updateTraining(req, res)
 );
 
+// DELETE /api/admin/trainings/:id
 router.delete(
   '/trainings/:id',
   authenticateToken,
   roleMiddleware('ADMIN'),
   (req, res) => adminController.deleteTraining(req, res)
+);
+
+// GET /api/admin/stats
+router.get(
+  '/stats',
+  authenticateToken,
+  roleMiddleware('ADMIN'),
+  (req, res) => adminController.getStats(req, res)
+);
+
+// GET /api/admin/participants
+router.get(
+  '/participants',
+  authenticateToken,
+  roleMiddleware('ADMIN'),
+  (req, res) => adminController.getParticipants(req, res)
 );
 
 module.exports = router;
