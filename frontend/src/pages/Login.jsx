@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 function Login({ onLogin }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [role, setRole] = useState('ADMIN')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
@@ -48,15 +49,18 @@ function Login({ onLogin }) {
   }
 
   return (
-    <div className="container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-      <div className="card" style={{ width: '100%', maxWidth: '400px' }}>
-        <h2 style={{ marginBottom: '24px', textAlign: 'center' }}>WAVE INIT LMS</h2>
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-header">
+          <h1>WAVE INIT</h1>
+          <p>Learning Management System</p>
+        </div>
 
-        {error && <div className="error">{error}</div>}
+        {error && <div className="alert alert-error">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Email</label>
+            <label>Email or Username</label>
             <input
               type="text"
               value={email}
@@ -77,14 +81,27 @@ function Login({ onLogin }) {
             />
           </div>
 
-          <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%' }}>
-            {loading ? 'Logging in...' : 'Login'}
+          <div className="form-group">
+            <label>Login as</label>
+            <select value={role} onChange={(e) => setRole(e.target.value)}>
+              <option value="ADMIN">Admin</option>
+              <option value="TRAINER">Trainer</option>
+              <option value="PARTICIPANT">Participant</option>
+            </select>
+          </div>
+
+          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
-        <Link to="/register" className="link">
-          Register as Participant
-        </Link>
+        {/* Only show register option for PARTICIPANT */}
+        {role === 'PARTICIPANT' && (
+          <p className="register-link">
+            Don't have an account?{' '}
+            <span onClick={() => navigate('/register')}>Register</span>
+          </p>
+        )}
       </div>
     </div>
   )

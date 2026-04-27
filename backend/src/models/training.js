@@ -20,9 +20,15 @@ const Training = sequelize.define('Training', {
     allowNull: true,
     field: 'trainer_id'
   },
-  schedule: {
+  startDate: {
     type: DataTypes.DATE,
-    allowNull: false
+    allowNull: true,
+    field: 'start_date'
+  },
+  endDate: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'end_date'
   },
   capacity: {
     type: DataTypes.INTEGER,

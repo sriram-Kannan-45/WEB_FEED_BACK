@@ -20,8 +20,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use('/api', authRoutes);
-app.use('/api', adminRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api', trainingRoutes);
 app.use('/api', profileRoutes);
 app.use('/api', deleteRoutes);

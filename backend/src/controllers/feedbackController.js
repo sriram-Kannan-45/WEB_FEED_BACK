@@ -18,6 +18,14 @@ const submitFeedback = async (req, res) => {
       return res.status(404).json({ error: 'Training not found' });
     }
 
+    // Allow feedback during or after training
+    const now = new Date();
+    const startDate = new Date(training.startDate);
+    
+    if (now < startDate) {
+      return res.status(400).json({ error: 'Feedback not allowed before training starts' });
+    }
+
     const enrollment = await Enrollment.findOne({
       where: { participantId, trainingId, status: 'ENROLLED' }
     });

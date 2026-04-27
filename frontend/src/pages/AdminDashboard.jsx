@@ -11,7 +11,7 @@ function AdminDashboard({ user, onLogout }) {
   
   const [trainerForm, setTrainerForm] = useState({ name: '', email: '' })
   const [trainingForm, setTrainingForm] = useState({ 
-    title: '', description: '', trainerId: '', schedule: '', capacity: '' 
+    title: '', description: '', trainerId: '', startDate: '', endDate: '', capacity: '' 
   })
   
   const [message, setMessage] = useState('')
@@ -105,7 +105,8 @@ function AdminDashboard({ user, onLogout }) {
           title: trainingForm.title,
           description: trainingForm.description,
           trainerId: parseInt(trainingForm.trainerId),
-          schedule: trainingForm.schedule,
+          startDate: trainingForm.startDate,
+          endDate: trainingForm.endDate,
           capacity: trainingForm.capacity ? parseInt(trainingForm.capacity) : null
         })
       })
@@ -117,7 +118,7 @@ function AdminDashboard({ user, onLogout }) {
       }
 
       setMessage(data.message || 'Training created successfully')
-      setTrainingForm({ title: '', description: '', trainerId: '', schedule: '', capacity: '' })
+      setTrainingForm({ title: '', description: '', trainerId: '', startDate: '', endDate: '', capacity: '' })
       fetchTrainings()
     } catch (err) {
       setError(err.message)
@@ -324,11 +325,20 @@ function AdminDashboard({ user, onLogout }) {
                 </select>
               </div>
               <div className="form-group">
-                <label>Schedule</label>
+                <label>Start Date</label>
                 <input
                   type="datetime-local"
-                  value={trainingForm.schedule}
-                  onChange={(e) => setTrainingForm({ ...trainingForm, schedule: e.target.value })}
+                  value={trainingForm.startDate}
+                  onChange={(e) => setTrainingForm({ ...trainingForm, startDate: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>End Date</label>
+                <input
+                  type="datetime-local"
+                  value={trainingForm.endDate}
+                  onChange={(e) => setTrainingForm({ ...trainingForm, endDate: e.target.value })}
                   required
                 />
               </div>
@@ -360,7 +370,7 @@ function AdminDashboard({ user, onLogout }) {
                   <tr>
                     <th>Title</th>
                     <th>Trainer</th>
-                    <th>Schedule</th>
+                    <th>Duration</th>
                     <th>Capacity</th>
                     <th>Actions</th>
                   </tr>
@@ -368,11 +378,16 @@ function AdminDashboard({ user, onLogout }) {
                 <tbody>
                   {trainings.map(t => (
                     <tr key={t.id}>
-                      <td>{t.title}</td>
-                      <td>{t.trainerName || '-'}</td>
-                      <td>{formatDate(t.schedule)}</td>
-                      <td>{t.capacity || 'Unlimited'}</td>
                       <td>
+                        <div className="training-title">
+                          <strong>{t.title}</strong>
+                          {t.description && <p className="desc-text">{t.description}</p>}
+                        </div>
+                      </td>
+                      <td>{t.trainerName || '-'}</td>
+                      <td>{formatDate(t.startDate)} → {formatDate(t.endDate)}</td>
+                      <td>{t.capacity || 'Unlimited'}</td>
+                      <td className="actions">
                         <button 
                           className="btn btn-sm" 
                           onClick={() => handleEditTraining(t)}

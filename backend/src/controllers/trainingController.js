@@ -2,7 +2,7 @@ const { Training, User, Enrollment } = require('../models');
 
 const createTraining = async (req, res) => {
   try {
-    const { title, description, trainerId, schedule, capacity } = req.body;
+    const { title, description, trainerId, startDate, endDate, capacity } = req.body;
 
     if (!title) {
       return res.status(422).json({ error: 'Title is required' });
@@ -12,8 +12,8 @@ const createTraining = async (req, res) => {
       return res.status(422).json({ error: 'Trainer ID is required' });
     }
 
-    if (!schedule) {
-      return res.status(422).json({ error: 'Schedule is required' });
+    if (!startDate || !endDate) {
+      return res.status(422).json({ error: 'Start date and end date are required' });
     }
 
     const trainer = await User.findOne({
@@ -24,21 +24,27 @@ const createTraining = async (req, res) => {
       return res.status(400).json({ error: 'Invalid trainer ID or user is not a TRAINER' });
     }
 
-    const scheduleDate = new Date(schedule);
-    if (isNaN(scheduleDate.getTime())) {
-      return res.status(422).json({ error: 'Invalid schedule date format' });
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (isNaN(start.getTime())) {
+      return res.status(422).json({ error: 'Invalid start date format' });
     }
 
-    const allowPast = req.query.allowPast === 'true' || process.env.TEST_MODE === 'true';
-    if (!allowPast && scheduleDate <= new Date()) {
-      return res.status(422).json({ error: 'Schedule must be in the future' });
+    if (isNaN(end.getTime())) {
+      return res.status(422).json({ error: 'Invalid end date format' });
+    }
+
+    if (end <= start) {
+      return res.status(422).json({ error: 'End date must be after start date' });
     }
 
     const training = await Training.create({
       title,
       description: description || null,
       trainerId: parseInt(trainerId),
-      schedule: scheduleDate,
+      startDate: start,
+      endDate: end,
       capacity: capacity ? parseInt(capacity) : null,
       createdBy: req.user.id
     });
@@ -49,7 +55,8 @@ const createTraining = async (req, res) => {
       description: training.description,
       trainerId: training.trainerId,
       trainerName: trainer.name,
-      schedule: training.schedule,
+      startDate: training.startDate,
+      endDate: training.endDate,
       capacity: training.capacity,
       message: 'Training created successfully'
     });
@@ -74,7 +81,7 @@ const getAllTrainings = async (req, res) => {
           required: false
         }
       ],
-      order: [['schedule', 'ASC']]
+      order: [['startDate', 'ASC']]
     });
 
     const formattedTrainings = await Promise.all(trainings.map(async t => {
@@ -97,7 +104,8 @@ const getAllTrainings = async (req, res) => {
         trainerId: t.trainerId,
         trainerName: t.trainer ? t.trainer.name : null,
         trainerEmail: t.trainer ? t.trainer.email : null,
-        schedule: t.schedule,
+        startDate: t.startDate,
+        endDate: t.endDate,
         capacity: t.capacity,
         enrolledCount,
         availableSeats: t.capacity ? (t.capacity - enrolledCount) : null,

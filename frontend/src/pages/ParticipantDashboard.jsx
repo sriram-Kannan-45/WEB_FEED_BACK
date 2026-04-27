@@ -184,7 +184,7 @@ function ParticipantDashboard({ user, onLogout }) {
                     <tr key={t.id}>
                       <td>{t.title}</td>
                       <td>{t.trainerName || '-'}</td>
-                      <td>{formatDate(t.schedule)}</td>
+                      <td>{formatDate(t.startDate)} → {formatDate(t.endDate)}</td>
                       <td>{t.capacity || 'Unlimited'}</td>
                       <td>
                         {isEnrolled(t.id) ? (
@@ -227,7 +227,7 @@ function ParticipantDashboard({ user, onLogout }) {
                     <tr key={e.id}>
                       <td>{e.trainingTitle}</td>
                       <td>{e.trainerName || '-'}</td>
-                      <td>{formatDate(e.schedule)}</td>
+                      <td>{formatDate(e.startDate)} → {formatDate(e.endDate)}</td>
                       <td>Enrolled</td>
                     </tr>
                   ))}
@@ -259,13 +259,15 @@ function ParticipantDashboard({ user, onLogout }) {
                       <td>
                         {hasFeedback(e.trainingId) ? (
                           <span style={{ color: 'green' }}>Submitted</span>
-                        ) : (
+                        ) : new Date() >= new Date(e.startDate) ? (
                           <button 
                             className="btn btn-sm btn-primary" 
                             onClick={() => openFeedbackModal(e)}
                           >
                             Give Feedback
                           </button>
+                        ) : (
+                          <span style={{ color: '#999' }}>Not started</span>
                         )}
                       </td>
                     </tr>

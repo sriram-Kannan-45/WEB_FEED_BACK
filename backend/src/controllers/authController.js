@@ -80,6 +80,10 @@ const register = async (req, res) => {
       return res.status(400).json({ error: 'Email already registered' });
     }
 
+    // Only participants can self-register
+    // Admins and trainers must be created by admin
+    const role = 'PARTICIPANT';
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
@@ -87,7 +91,7 @@ const register = async (req, res) => {
       email,
       password: hashedPassword,
       phone,
-      role: 'PARTICIPANT'
+      role: role
     });
 
     const token = jwt.sign(
