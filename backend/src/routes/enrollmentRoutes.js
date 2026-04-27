@@ -6,21 +6,21 @@ const roleMiddleware = require('../middleware/roles');
 const router = express.Router();
 
 router.post(
-  '/participant/enroll',
+  '/enroll',
   authenticateToken,
   roleMiddleware('PARTICIPANT'),
   (req, res) => enrollmentController.enrollInTraining(req, res)
 );
 
 router.get(
-  '/participant/my-trainings',
+  '/my-trainings',
   authenticateToken,
   roleMiddleware('PARTICIPANT'),
   (req, res) => enrollmentController.getMyTrainings(req, res)
 );
 
 router.delete(
-  '/participant/enroll/:trainingId',
+  '/enroll/:trainingId',
   authenticateToken,
   roleMiddleware('PARTICIPANT'),
   (req, res) => enrollmentController.cancelEnrollment(req, res)

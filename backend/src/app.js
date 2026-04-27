@@ -20,13 +20,19 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Global request logger
+app.use((req, res, next) => {
+  console.log('➡️ API HIT:', req.method, req.originalUrl);
+  next();
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api', trainingRoutes);
 app.use('/api', profileRoutes);
 app.use('/api', deleteRoutes);
-app.use('/api', enrollmentRoutes);
-app.use('/api', feedbackRoutes);
+app.use('/api/participant', enrollmentRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
@@ -37,8 +43,14 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
+// Global 404 handler with detailed logging
 app.use((req, res) => {
-  res.status(404).json({ error: 'Endpoint not found' });
+  console.error('❌ ENDPOINT NOT FOUND:', req.method, req.originalUrl);
+  res.status(404).json({
+    error: 'Endpoint not found',
+    path: req.originalUrl,
+    method: req.method
+  });
 });
 
 const startServer = async () => {
@@ -76,4 +88,9 @@ const startServer = async () => {
   }
 };
 
-startServer();
+// Only start server if run directly (not when imported for tests)
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = app;

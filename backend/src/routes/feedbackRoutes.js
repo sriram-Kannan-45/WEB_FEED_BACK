@@ -7,7 +7,7 @@ const roleMiddleware = require('../middleware/roles');
 const router = express.Router();
 
 router.post(
-  '/feedback',
+  '/',
   authenticateToken,
   roleMiddleware('PARTICIPANT'),
   [
@@ -19,21 +19,21 @@ router.post(
 );
 
 router.get(
-  '/participant/feedbacks',
+  '/my-feedbacks',
   authenticateToken,
   roleMiddleware('PARTICIPANT'),
   (req, res) => feedbackController.getParticipantFeedbacks(req, res)
 );
 
 router.get(
-  '/trainer/feedbacks',
+  '/trainer-feedbacks',
   authenticateToken,
   roleMiddleware('TRAINER'),
   (req, res) => feedbackController.getTrainerFeedbacks(req, res)
 );
 
 router.get(
-  '/admin/feedbacks',
+  '/admin-feedbacks',
   authenticateToken,
   roleMiddleware('ADMIN'),
   (req, res) => feedbackController.getAdminFeedbacks(req, res)

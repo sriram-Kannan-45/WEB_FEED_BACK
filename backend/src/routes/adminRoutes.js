@@ -9,7 +9,7 @@ const roleMiddleware = require('../middleware/roles');
 const router = express.Router();
 
 router.post(
-  '/admin/create-trainer',
+  '/create-trainer',
   authenticateToken,
   roleMiddleware('ADMIN'),
   [
@@ -20,7 +20,7 @@ router.post(
 );
 
 router.put(
-  '/admin/trainers/:id',
+  '/trainers/:id',
   authenticateToken,
   roleMiddleware('ADMIN'),
   (req, res) => adminController.updateTrainer(req, res)
@@ -33,14 +33,14 @@ router.get(
 );
 
 router.get(
-  '/admin/trainers',
+  '/trainings',
   authenticateToken,
   roleMiddleware('ADMIN'),
   (req, res) => authController.getTrainers(req, res)
 );
 
 router.post(
-  '/admin/trainings',
+  '/trainings',
   authenticateToken,
   roleMiddleware('ADMIN'),
   [
@@ -52,14 +52,14 @@ router.post(
 );
 
 router.put(
-  '/admin/trainings/:id',
+  '/trainings/:id',
   authenticateToken,
   roleMiddleware('ADMIN'),
   (req, res) => adminController.updateTraining(req, res)
 );
 
 router.delete(
-  '/admin/trainings/:id',
+  '/trainings/:id',
   authenticateToken,
   roleMiddleware('ADMIN'),
   (req, res) => adminController.deleteTraining(req, res)
