@@ -263,7 +263,7 @@ const replyToFeedback = async (req, res) => {
       return res.status(404).json({ error: 'Feedback not found' });
     }
 
-    if (feedback.training.trainerId !== trainerId) {
+    if (!feedback.training || parseInt(feedback.training.trainerId) !== parseInt(trainerId)) {
       return res.status(403).json({ error: 'Not authorized to reply to this feedback' });
     }
 

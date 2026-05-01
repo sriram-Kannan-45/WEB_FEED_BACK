@@ -54,7 +54,10 @@ function TrainerDashboard({ user, onLogout }) {
       const r = await fetch(`${API}/feedback/${replyModal.id}/reply`, {
         method: 'POST', headers: auth(), body: JSON.stringify({ trainerResponse: replyText })
       })
-      if (!r.ok) throw new Error('Failed to reply')
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d.error || 'Failed to reply');
+      }
       setReplyModal(null)
       setReplyText('')
       fetchFeedbacks()
