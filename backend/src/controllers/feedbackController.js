@@ -284,7 +284,7 @@ const replyToFeedback = async (req, res) => {
     res.json({ message: 'Response added successfully' });
   } catch (error) {
     console.error('Reply feedback error:', error.message);
-    res.status(500).json({ error: 'Server error replying to feedback' });
+    res.status(500).json({ error: 'Server error: ' + error.message });
   }
 };
 
