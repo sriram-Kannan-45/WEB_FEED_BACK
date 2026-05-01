@@ -40,10 +40,20 @@ const login = async (req, res) => {
       return res.status(401).json({ error: 'User not found' });
     }
 
+    // DEBUG: Log password format
+    console.log('🔍 DEBUG - Stored password starts with:', user.password.substring(0, 20));
+    console.log('🔍 DEBUG - Input password:', password);
+
     const isValidPassword = await bcrypt.compare(password, user.password);
+
+    console.log('🔍 DEBUG - bcrypt.compare result:', isValidPassword);
 
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Invalid password' });
+    }
+
+    if (user.role === 'PARTICIPANT' && user.status === 'PENDING') {
+      return res.status(403).json({ error: 'Your account is pending approval. Please wait for admin to approve your registration.' });
     }
 
     if (requestedRole && requestedRole !== user.role) {
@@ -65,6 +75,7 @@ const login = async (req, res) => {
       email: user.email,
       username: user.username,
       role: user.role,
+      status: user.status,
       token
     });
   } catch (error) {
@@ -98,21 +109,17 @@ const register = async (req, res) => {
       email,
       password: hashedPassword,
       phone,
-      role: 'PARTICIPANT'
+      role: 'PARTICIPANT',
+      status: 'PENDING'
     });
-
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
 
     res.status(201).json({
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
-      token
+      status: user.status,
+      message: 'Registration submitted. Please wait for admin approval.'
     });
   } catch (error) {
     console.error('Register error:', error.message);
@@ -122,10 +129,14 @@ const register = async (req, res) => {
 
 const createTrainer = async (req, res) => {
   try {
-    const { name, email } = req.body;
+    const { name, email, password } = req.body;
 
-    if (!name || !email) {
-      return res.status(422).json({ error: 'Name and email are required' });
+    if (!name || !email || !password) {
+      return res.status(422).json({ error: 'Name, email, and password are required' });
+    }
+
+    if (password.length < 6) {
+      return res.status(422).json({ error: 'Password must be at least 6 characters' });
     }
 
     const existingUser = await User.findOne({ where: { email } });
@@ -134,9 +145,12 @@ const createTrainer = async (req, res) => {
       return res.status(400).json({ error: 'Email already exists' });
     }
 
-    const username = await generateUsername(name);
-    const tempPassword = generateTempPassword();
-    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+    const username = email.split('@')[0];
+    
+    // DEBUG: Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    console.log('🔍 DEBUG - Original password:', password);
+    console.log('🔍 DEBUG - Hashed password:', hashedPassword.substring(0, 30) + '...');
 
     const trainer = await User.create({
       name,
@@ -153,7 +167,6 @@ const createTrainer = async (req, res) => {
       email: trainer.email,
       username: trainer.username,
       role: trainer.role,
-      password: tempPassword,
       message: 'Trainer created successfully'
     });
   } catch (error) {

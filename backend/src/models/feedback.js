@@ -35,6 +35,10 @@ const Feedback = sequelize.define('Feedback', {
     type: DataTypes.BOOLEAN,
     allowNull: false,
     defaultValue: false
+  },
+  trainerResponse: {
+    type: DataTypes.TEXT,
+    allowNull: true
   }
 }, {
   tableName: 'feedbacks',

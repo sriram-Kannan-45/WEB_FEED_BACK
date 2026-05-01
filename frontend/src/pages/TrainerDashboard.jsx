@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import TrainerForm from '../components/TrainerForm'
 
 const API = 'http://localhost:3001/api'
 
@@ -10,9 +11,16 @@ function TrainerDashboard({ user, onLogout }) {
 
   const auth = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` })
 
+  const [replyModal, setReplyModal] = useState(null)
+  const [replyText, setReplyText] = useState('')
+  const [msg, setMsg] = useState('')
+  const [err, setErr] = useState('')
+
   useEffect(() => {
     fetchTrainings()
     fetchFeedbacks()
+    fetchTrainingsList()
+    fetchNotes()
   }, [])
 
   const fetchTrainings = async () => {
@@ -40,14 +48,83 @@ function TrainerDashboard({ user, onLogout }) {
     } catch {}
   }
 
+  const handleReply = async (e) => {
+    e.preventDefault()
+    try {
+      const r = await fetch(`${API}/feedback/${replyModal.id}/reply`, {
+        method: 'POST', headers: auth(), body: JSON.stringify({ trainerResponse: replyText })
+      })
+      if (!r.ok) throw new Error('Failed to reply')
+      setReplyModal(null)
+      setReplyText('')
+      fetchFeedbacks()
+    } catch (e) {
+      alert(e.message)
+    }
+  }
+
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'
   const Stars = ({ v }) => <span className="stars">{[1,2,3,4,5].map(s => <span key={s} className={`star ${s<=v?'filled':''}`}>&#9733;</span>)}</span>
   const initials = (name) => name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2) : 'TR'
 
   const TABS = [
     { key: 'trainings', label: 'My Trainings' },
+    { key: 'notes', label: 'Upload Notes' },
     { key: 'feedback', label: 'Feedback Received' },
+    { key: 'profile', label: 'My Profile' },
   ]
+
+  const [noteForm, setNoteForm] = useState({ title: '', description: '', link: '', trainingId: '' })
+  const [noteFile, setNoteFile] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const [notes, setNotes] = useState([])
+  const [trainingsList, setTrainingsList] = useState([])
+
+  const handleUploadNote = async (e) => {
+    e.preventDefault()
+    if (!noteForm.title || (!noteFile && !noteForm.link)) {
+      setErr('Title and file or link required')
+      return
+    }
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('title', noteForm.title)
+      formData.append('description', noteForm.description)
+      formData.append('link', noteForm.link)
+      formData.append('trainingId', noteForm.trainingId)
+      if (noteFile) formData.append('file', noteFile)
+
+      const r = await fetch(`${API}/notes`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${user.token}` },
+        body: formData
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error)
+      setMsg('Note uploaded! Waiting for admin approval.')
+      setNoteForm({ title: '', description: '', link: '', trainingId: '' })
+      setNoteFile(null)
+      fetchNotes()
+    } catch (e) { setErr(e.message) }
+    finally { setUploading(false) }
+  }
+
+  const fetchNotes = async () => {
+    try {
+      const r = await fetch(`${API}/notes/my-notes`, { headers: auth() })
+      const d = await r.json()
+      setNotes(d.notes || [])
+    } catch {}
+  }
+
+  const fetchTrainingsList = async () => {
+    try {
+      const r = await fetch(`${API}/trainer/trainings`, { headers: auth() })
+      const d = await r.json()
+      setTrainingsList(d.trainings || [])
+    } catch {}
+  }
 
   return (
     <div>
@@ -144,7 +221,7 @@ function TrainerDashboard({ user, onLogout }) {
                 <div className="table-wrapper">
                   <table className="table">
                     <thead>
-                      <tr><th>Training</th><th>Participant</th><th>Trainer Rating</th><th>Subject Rating</th><th>Comments</th><th>Date</th></tr>
+                      <tr><th>Training</th><th>Participant</th><th>Trainer Rating</th><th>Subject Rating</th><th>Comments</th><th>My Reply</th><th>Date</th></tr>
                     </thead>
                     <tbody>
                       {feedbacks.map(f => (
@@ -154,6 +231,13 @@ function TrainerDashboard({ user, onLogout }) {
                           <td><Stars v={f.trainerRating} /></td>
                           <td><Stars v={f.subjectRating} /></td>
                           <td style={{ maxWidth: 200, fontSize: 12, color: 'var(--text-secondary)' }}>{f.comments || '-'}</td>
+                          <td style={{ maxWidth: 200, fontSize: 12 }}>
+                            {f.trainerResponse ? (
+                              <span style={{ color: 'var(--text-secondary)' }}>{f.trainerResponse}</span>
+                            ) : (
+                              <button className="btn btn-sm" onClick={() => { setReplyModal(f); setReplyText('') }}>Reply</button>
+                            )}
+                          </td>
                           <td>{fmtDate(f.submittedAt)}</td>
                         </tr>
                       ))}
@@ -163,8 +247,99 @@ function TrainerDashboard({ user, onLogout }) {
               )}
             </div>
           )}
+
+          {tab === 'notes' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+              <div className="card">
+                <div className="card-header">
+                  <h3>Upload Note</h3>
+                </div>
+                {err && <div className="error">{err}</div>}
+                {msg && <div className="success">{msg}</div>}
+                <form onSubmit={handleUploadNote}>
+                  <div className="form-group">
+                    <label className="form-label">Title *</label>
+                    <input className="form-control" type="text" value={noteForm.title}
+                      onChange={e => setNoteForm(p => ({ ...p, title: e.target.value }))} required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Description</label>
+                    <textarea className="form-control" value={noteForm.description}
+                      onChange={e => setNoteForm(p => ({ ...p, description: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Related Training (optional)</label>
+                    <select className="form-control" value={noteForm.trainingId}
+                      onChange={e => setNoteForm(p => ({ ...p, trainingId: e.target.value }))}>
+                      <option value="">Select training</option>
+                      {trainingsList.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">File OR Link</label>
+                    <input type="file" onChange={e => setNoteFile(e.target.files[0])} className="form-control" />
+                    <div style={{ margin: '8px 0', textAlign: 'center' }}>OR</div>
+                    <input className="form-control" type="url" placeholder="https://example.com/resource"
+                      value={noteForm.link} onChange={e => { setNoteForm(p => ({ ...p, link: e.target.value })); setNoteFile(null) }} />
+                  </div>
+                  <button type="submit" className="btn btn-primary" disabled={uploading}>
+                    {uploading ? 'Uploading...' : 'Upload Note'}
+                  </button>
+                </form>
+              </div>
+              <div className="card">
+                <div className="card-header">
+                  <h3>My Notes ({notes.length})</h3>
+                </div>
+                {notes.length === 0 ? (
+                  <div className="empty-state"><p>No notes uploaded yet.</p></div>
+                ) : (
+                  <div className="notes-list">
+                    {notes.map(n => (
+                      <div key={n.id} className="note-card">
+                        <div className="note-title">{n.title}</div>
+                        <div className="note-type badge badge-blue">{n.fileType}</div>
+                        <div className="note-status badge badge-gray">{n.status}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {tab === 'profile' && (
+            <div className="card">
+              <div className="card-header">
+                <h3>My Profile</h3>
+                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Manage your trainer profile &amp; photo</span>
+              </div>
+              <TrainerForm user={user} />
+            </div>
+          )}
         </div>
       </div>
+
+      {replyModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>Reply to Feedback</h3>
+              <button className="modal-close" onClick={() => setReplyModal(null)}>&#10005;</button>
+            </div>
+            <form onSubmit={handleReply}>
+              <div className="form-group">
+                <label className="form-label">Your Response</label>
+                <textarea className="form-control" value={replyText} required onChange={e => setReplyText(e.target.value)} placeholder="Type your response..." />
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn" onClick={() => setReplyModal(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Submit Reply</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

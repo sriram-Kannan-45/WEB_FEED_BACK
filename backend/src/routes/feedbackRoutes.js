@@ -19,6 +19,13 @@ router.post(
 );
 
 router.get(
+  '/',
+  authenticateToken,
+  roleMiddleware('ADMIN'),
+  (req, res) => feedbackController.getAdminFeedbacks(req, res) // Use admin feedbaks as generic GET
+);
+
+router.get(
   '/my-feedbacks',
   authenticateToken,
   roleMiddleware('PARTICIPANT'),
@@ -37,6 +44,27 @@ router.get(
   authenticateToken,
   roleMiddleware('ADMIN'),
   (req, res) => feedbackController.getAdminFeedbacks(req, res)
+);
+
+router.post(
+  '/:id/reply',
+  authenticateToken,
+  roleMiddleware('TRAINER'),
+  (req, res) => feedbackController.replyToFeedback(req, res)
+);
+
+router.put(
+  '/:id',
+  authenticateToken,
+  roleMiddleware('PARTICIPANT'),
+  (req, res) => feedbackController.updateFeedback(req, res)
+);
+
+router.delete(
+  '/:id',
+  authenticateToken,
+  roleMiddleware('ADMIN'),
+  (req, res) => feedbackController.deleteFeedback(req, res)
 );
 
 module.exports = router;

@@ -5,6 +5,12 @@ const TrainerProfile = require('./trainerProfile');
 const Enrollment = require('./enrollment');
 const Feedback = require('./feedback');
 
+const Notification = require('./notification');
+const SurveyQuestion = require('./surveyQuestion');
+const SurveyAnswer = require('./surveyAnswer');
+const Note = require('./note');
+const ActivityLog = require('./activityLog');
+
 User.hasOne(TrainerProfile, {
   foreignKey: 'userId',
   as: 'profile'
@@ -70,11 +76,34 @@ Feedback.belongsTo(Training, {
   as: 'training'
 });
 
+User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
+Notification.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+Training.hasMany(SurveyQuestion, { foreignKey: 'trainingId', as: 'surveyQuestions' });
+SurveyQuestion.belongsTo(Training, { foreignKey: 'trainingId', as: 'training' });
+
+SurveyQuestion.hasMany(SurveyAnswer, { foreignKey: 'questionId', as: 'answers' });
+SurveyAnswer.belongsTo(SurveyQuestion, { foreignKey: 'questionId', as: 'question' });
+
+Feedback.hasMany(SurveyAnswer, { foreignKey: 'feedbackId', as: 'surveyAnswers' });
+SurveyAnswer.belongsTo(Feedback, { foreignKey: 'feedbackId', as: 'feedback' });
+
+User.hasMany(Note, { foreignKey: 'trainerId', as: 'notes' });
+Note.belongsTo(User, { foreignKey: 'trainerId', as: 'trainer' });
+
+Training.hasMany(Note, { foreignKey: 'trainingId', as: 'notes' });
+Note.belongsTo(Training, { foreignKey: 'trainingId', as: 'training' });
+
 module.exports = {
   sequelize,
   User,
   Training,
   TrainerProfile,
   Enrollment,
-  Feedback
+  Feedback,
+  Notification,
+  SurveyQuestion,
+  SurveyAnswer,
+  Note,
+  ActivityLog
 };

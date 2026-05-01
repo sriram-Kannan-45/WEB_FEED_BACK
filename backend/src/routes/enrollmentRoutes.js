@@ -37,4 +37,13 @@ router.delete(
   (req, res) => enrollmentController.cancelEnrollment(req, res)
 );
 
+// GET /api/participant/feedbacks
+const feedbackController = require('../controllers/feedbackController');
+router.get(
+  '/feedbacks',
+  authenticateToken,
+  roleMiddleware('PARTICIPANT'),
+  (req, res) => feedbackController.getParticipantFeedbacks(req, res)
+);
+
 module.exports = router;

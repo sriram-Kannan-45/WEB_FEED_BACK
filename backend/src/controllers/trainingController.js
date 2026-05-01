@@ -1,4 +1,4 @@
-const { Training, User, Enrollment } = require('../models');
+const { Training, User, Enrollment, Notification } = require('../models');
 const { Op } = require('sequelize');
 
 const createTraining = async (req, res) => {
@@ -27,6 +27,13 @@ const createTraining = async (req, res) => {
       endDate: end,
       capacity: capacity ? parseInt(capacity) : null,
       createdBy: req.user.id
+    });
+
+    // Notify Trainer
+    await Notification.create({
+      userId: trainer.id,
+      message: `You have been assigned as the instructor for training: ${training.title}`,
+      isRead: false
     });
 
     console.log('✅ Training saved:', training.id, '-', training.title);

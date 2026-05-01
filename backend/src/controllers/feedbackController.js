@@ -1,16 +1,18 @@
-const { Feedback, Enrollment, Training, User } = require('../models');
+const { Feedback, Enrollment, Training, User, SurveyAnswer, Notification } = require('../models');
+const ActivityService = require('../services/activityService');
 
 const submitFeedback = async (req, res) => {
   try {
+    console.log("Feedback request:", req.body);
     const participantId = req.user.id;
-    const { trainingId, trainerRating, subjectRating, comments, anonymous } = req.body;
+    const { trainingId, trainerRating, subjectRating, comments, anonymous, surveyAnswers } = req.body;
 
     if (!trainingId || !trainerRating || !subjectRating) {
-      return res.status(422).json({ error: 'Training ID and both ratings are required' });
+      return res.status(400).json({ error: 'Training ID and both ratings are required' });
     }
 
     if (trainerRating < 1 || trainerRating > 5 || subjectRating < 1 || subjectRating > 5) {
-      return res.status(422).json({ error: 'Ratings must be between 1 and 5' });
+      return res.status(400).json({ error: 'Ratings must be between 1 and 5' });
     }
 
     const training = await Training.findByPk(trainingId);
@@ -40,19 +42,66 @@ const submitFeedback = async (req, res) => {
       return res.status(400).json({ error: 'Feedback already submitted' });
     }
 
-    await Feedback.create({
-      participantId,
+    const feedback = await Feedback.create({
+      participantId: req.user.id,
       trainingId,
       trainerRating,
       subjectRating,
       comments: comments || null,
       anonymous: anonymous || false
     });
+    console.log("Saved feedback:", feedback);
 
-    res.status(201).json({ message: 'Feedback submitted successfully' });
+    try {
+      if (surveyAnswers && surveyAnswers.length > 0) {
+        const answersData = surveyAnswers.map(ans => ({
+          feedbackId: feedback.id,
+          questionId: ans.questionId,
+          answerText: ans.answerText || null,
+          answerRating: ans.answerRating || null
+        }));
+        await SurveyAnswer.bulkCreate(answersData);
+      }
+
+      // Notify Admins
+      const admins = await User.findAll({ where: { role: 'ADMIN' } });
+      const notifications = admins.map(a => ({
+        userId: a.id,
+        message: `New feedback submitted for training: ${training.title}`,
+        isRead: false
+      }));
+      if (notifications.length > 0) {
+        await Notification.bulkCreate(notifications);
+      }
+
+      // Notify Trainer
+      if (training.trainerId) {
+        await Notification.create({
+          userId: training.trainerId,
+          message: `You received new feedback for ${training.title}`,
+          isRead: false
+        });
+      }
+
+      // Log activity
+      const io = req.app.get('io');
+      const user = await User.findByPk(participantId);
+      await ActivityService.logActivity({
+        userId: participantId,
+        userName: anonymous ? 'Anonymous' : (user?.name || 'Unknown'),
+        action: 'FEEDBACK_SUBMITTED',
+        entityType: 'Training',
+        entityId: trainingId,
+        details: { trainingName: training.title }
+      }, io);
+    } catch (extraErr) {
+      console.error("Non-critical error adding survey/notifications:", extraErr.message);
+    }
+
+    res.status(201).json({ message: 'Feedback submitted successfully', feedback });
   } catch (error) {
     console.error('Submit feedback error:', error.message);
-    res.status(500).json({ error: 'Server error submitting feedback' });
+    res.status(500).json({ error: `Server error: ${error.message}` });
   }
 };
 
@@ -110,7 +159,7 @@ const getAdminFeedbacks = async (req, res) => {
       include: [{
         model: Training,
         as: 'training',
-        attributes: ['id', 'title', 'schedule'],
+        attributes: ['id', 'title', 'startDate', 'endDate'],
         include: [{
           model: User,
           as: 'trainer',
@@ -134,7 +183,7 @@ const getAdminFeedbacks = async (req, res) => {
       trainingId: f.trainingId,
       trainingTitle: f.training?.title,
       trainerName: f.training?.trainer?.name || 'Unknown',
-      schedule: f.training?.schedule,
+      trainerId: f.training?.trainerId,
       trainerRating: f.trainerRating,
       subjectRating: f.subjectRating,
       comments: f.comments,
@@ -151,10 +200,15 @@ const getAdminFeedbacks = async (req, res) => {
       ? (formattedFeedbacks.reduce((sum, f) => sum + f.subjectRating, 0) / formattedFeedbacks.length).toFixed(1)
       : 0;
 
+    const avgRating = ((parseFloat(avgTrainerRating) + parseFloat(avgSubjectRating)) / 2).toFixed(1);
+
     res.json({
-      count: formattedFeedbacks.length,
-      averageTrainerRating: avgTrainerRating,
-      averageSubjectRating: avgSubjectRating,
+      summary: {
+        totalResponses: formattedFeedbacks.length,
+        averageTrainerRating: parseFloat(avgTrainerRating),
+        averageSubjectRating: parseFloat(avgSubjectRating),
+        overallRating: parseFloat(avgRating)
+      },
       feedbacks: formattedFeedbacks
     });
   } catch (error) {
@@ -180,10 +234,12 @@ const getParticipantFeedbacks = async (req, res) => {
       id: f.id,
       trainingId: f.trainingId,
       trainingTitle: f.training?.title,
-      rating: f.rating,
+      trainerRating: f.trainerRating,
+      subjectRating: f.subjectRating,
       comments: f.comments,
+      trainerResponse: f.trainerResponse,
       anonymous: f.anonymous,
-      submittedAt: f.submitted_at
+      submittedAt: f.submitted_at || f.createdAt
     }));
 
     res.json({ feedbacks: formattedFeedbacks });
@@ -193,9 +249,90 @@ const getParticipantFeedbacks = async (req, res) => {
   }
 };
 
+const replyToFeedback = async (req, res) => {
+  try {
+    const trainerId = req.user.id;
+    const { id } = req.params;
+    const { trainerResponse } = req.body;
+
+    const feedback = await Feedback.findByPk(id, {
+      include: [{ model: Training, as: 'training' }]
+    });
+
+    if (!feedback) {
+      return res.status(404).json({ error: 'Feedback not found' });
+    }
+
+    if (feedback.training.trainerId !== trainerId) {
+      return res.status(403).json({ error: 'Not authorized to reply to this feedback' });
+    }
+
+    await feedback.update({ trainerResponse });
+
+    // Log activity
+    const io = req.app.get('io');
+    const user = await User.findByPk(trainerId);
+    await ActivityService.logActivity({
+      userId: trainerId,
+      userName: user?.name || 'Unknown',
+      action: 'FEEDBACK_REPLIED',
+      entityType: 'Feedback',
+      entityId: feedback.id,
+      details: { trainingName: feedback.training?.title }
+    }, io);
+
+    res.json({ message: 'Response added successfully' });
+  } catch (error) {
+    console.error('Reply feedback error:', error.message);
+    res.status(500).json({ error: 'Server error replying to feedback' });
+  }
+};
+
+const updateFeedback = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { trainerRating, subjectRating, comments, anonymous } = req.body;
+    const feedback = await Feedback.findByPk(id);
+    if (!feedback) return res.status(404).json({ error: 'Feedback not found' });
+    
+    // Check if participant owns it
+    if (feedback.participantId !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    await feedback.update({
+      trainerRating: trainerRating || feedback.trainerRating,
+      subjectRating: subjectRating || feedback.subjectRating,
+      comments: comments !== undefined ? comments : feedback.comments,
+      anonymous: anonymous !== undefined ? anonymous : feedback.anonymous
+    });
+    res.json({ message: 'Feedback updated successfully', feedback });
+  } catch (error) {
+    console.error('Update feedback error:', error.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+const deleteFeedback = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const feedback = await Feedback.findByPk(id);
+    if (!feedback) return res.status(404).json({ error: 'Feedback not found' });
+    
+    await feedback.destroy();
+    res.json({ message: 'Feedback deleted successfully' });
+  } catch (error) {
+    console.error('Delete feedback error:', error.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
 module.exports = {
   submitFeedback,
   getTrainerFeedbacks,
   getAdminFeedbacks,
-  getParticipantFeedbacks
+  getParticipantFeedbacks,
+  replyToFeedback,
+  updateFeedback,
+  deleteFeedback
 };

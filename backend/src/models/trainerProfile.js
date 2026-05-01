@@ -32,6 +32,11 @@ const TrainerProfile = sequelize.define('TrainerProfile', {
   experience: {
     type: DataTypes.STRING,
     allowNull: true
+  },
+  imagePath: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'image_path'
   }
 }, {
   tableName: 'trainer_profiles',

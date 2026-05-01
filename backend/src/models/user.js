@@ -33,12 +33,29 @@ const User = sequelize.define('User', {
     type: DataTypes.ENUM('ADMIN', 'TRAINER', 'PARTICIPANT'),
     allowNull: false,
     defaultValue: 'PARTICIPANT'
+  },
+  status: {
+    type: DataTypes.ENUM('PENDING', 'APPROVED'),
+    allowNull: false,
+    defaultValue: 'PENDING'
+  },
+  isDeleted: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    comment: 'Soft delete flag'
+  },
+  deletedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'Soft delete timestamp'
   }
 }, {
   tableName: 'users',
   timestamps: true,
   createdAt: 'created_at',
-  updatedAt: 'updated_at'
+  updatedAt: 'updated_at',
+  paranoid: false, // Disable built-in soft delete, use custom
+  deletedAt: false
 });
 
 module.exports = User;

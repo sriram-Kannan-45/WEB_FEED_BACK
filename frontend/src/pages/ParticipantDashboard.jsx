@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import Layout from '../components/Layout'
 
 const API = 'http://localhost:3001/api'
 
@@ -12,6 +13,8 @@ function ParticipantDashboard({ user, onLogout }) {
   const [loading, setLoading] = useState(false)
   const [feedbackModal, setFeedbackModal] = useState(null)
   const [fbForm, setFbForm] = useState({ trainerRating: 0, subjectRating: 0, comments: '', anonymous: false })
+  const [questions, setQuestions] = useState([])
+  const [answers, setAnswers] = useState({})
 
   const auth = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${user.token}` })
 
@@ -20,9 +23,7 @@ function ParticipantDashboard({ user, onLogout }) {
     setTimeout(() => { setErr(''); setMsg('') }, 4000)
   }
 
-  useEffect(() => {
-    fetchAll()
-  }, [])
+  useEffect(() => { fetchAll() }, [])
 
   const fetchAll = () => { fetchTrainings(); fetchEnrollments(); fetchFeedbacks() }
 
@@ -44,7 +45,7 @@ function ParticipantDashboard({ user, onLogout }) {
 
   const fetchFeedbacks = async () => {
     try {
-      const r = await fetch(`${API}/feedback/my-feedbacks`, { headers: auth() })
+      const r = await fetch(`${API}/participant/feedbacks`, { headers: auth() })
       const d = await r.json()
       setFeedbacks(d.feedbacks || [])
     } catch {}
@@ -73,9 +74,15 @@ function ParticipantDashboard({ user, onLogout }) {
     } catch (e) { notify(e.message, true) }
   }
 
-  const openFeedback = (enrollment) => {
+  const openFeedback = async (enrollment) => {
     setFeedbackModal(enrollment)
     setFbForm({ trainerRating: 0, subjectRating: 0, comments: '', anonymous: false })
+    setAnswers({})
+    try {
+      const r = await fetch(`${API}/survey/${enrollment.trainingId}`, { headers: auth() })
+      const d = await r.json()
+      setQuestions(d.questions || [])
+    } catch {}
   }
 
   const handleSubmitFeedback = async (e) => {
@@ -83,13 +90,24 @@ function ParticipantDashboard({ user, onLogout }) {
     if (!fbForm.trainerRating || !fbForm.subjectRating) { notify('Please rate both trainer and subject', true); return }
     setLoading(true)
     try {
+      const surveyAnswers = Object.entries(answers).map(([qid, val]) => {
+        const q = questions.find(x => x.id === parseInt(qid))
+        return {
+          questionId: parseInt(qid),
+          answerText: q.questionType !== 'RATING' ? val : null,
+          answerRating: q.questionType === 'RATING' ? parseInt(val) : null
+        }
+      })
+      
+      const payload = { trainingId: feedbackModal.trainingId, ...fbForm, surveyAnswers }
+      
       const r = await fetch(`${API}/feedback`, {
         method: 'POST', headers: auth(),
-        body: JSON.stringify({ trainingId: feedbackModal.trainingId, ...fbForm })
+        body: JSON.stringify(payload)
       })
       const d = await r.json()
-      if (!r.ok) throw new Error(d.error)
-      notify('Feedback submitted')
+      if (!r.ok) throw new Error(d.error || 'Server error')
+      notify(d.message || 'Feedback submitted successfully')
       setFeedbackModal(null)
       fetchFeedbacks()
     } catch (e) { notify(e.message, true) }
@@ -99,7 +117,6 @@ function ParticipantDashboard({ user, onLogout }) {
   const isEnrolled = (id) => enrollments.some(e => e.trainingId === id)
   const hasFeedback = (id) => feedbacks.some(f => f.trainingId === id)
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'
-  const initials = (name) => name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2) : 'PT'
 
   const StarPicker = ({ value, onChange }) => (
     <div className="stars">
@@ -116,215 +133,155 @@ function ParticipantDashboard({ user, onLogout }) {
 
   const Stars = ({ v }) => <span className="stars">{[1,2,3,4,5].map(s => <span key={s} className={`star ${s<=v?'filled':''}`}>&#9733;</span>)}</span>
 
-  const TABS = [
-    { key: 'available', label: 'Available Trainings' },
-    { key: 'myEnrollments', label: 'My Enrollments' },
-    { key: 'feedback', label: 'Give Feedback' },
-    { key: 'myFeedbacks', label: 'My Feedbacks' },
-  ]
-
   return (
-    <div>
-      <nav className="navbar">
-        <div className="navbar-brand">
-          <div className="navbar-logo">W</div>
-          <h1>WAVE INIT LMS</h1>
-          <span className="navbar-badge">Participant</span>
-        </div>
-        <div className="navbar-right">
-          <div className="user-chip">
-            <div className="user-avatar">{initials(user.name)}</div>
-            <div className="user-chip-info">
-              <span>{user.name || 'Participant'}</span>
-              <small>{user.email}</small>
-            </div>
-          </div>
-          <button className="btn btn-sm btn-logout" onClick={onLogout}>Sign Out</button>
-        </div>
-      </nav>
+    <Layout user={user} activeTab={tab} onTabChange={setTab} onLogout={onLogout}>
+      {err && <div className="error">{err}</div>}
+      {msg && <div className="success">{msg}</div>}
 
-      <div className="container">
-        <div className="dashboard">
-          <div className="stats-grid">
-            <div className="stat-card">
-              <div className="stat-label">Available</div>
-              <div className="stat-value">{trainings.length}</div>
-            </div>
-            <div className="stat-card green">
-              <div className="stat-label">Enrolled</div>
-              <div className="stat-value">{enrollments.length}</div>
-            </div>
-            <div className="stat-card purple">
-              <div className="stat-label">Feedbacks Given</div>
-              <div className="stat-value">{feedbacks.length}</div>
-            </div>
-          </div>
-
-          <div className="tabs">
-            {TABS.map(t => (
-              <button key={t.key} className={`tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)}>
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          {err && <div className="error">{err}</div>}
-          {msg && <div className="success">{msg}</div>}
-
-          {/* AVAILABLE TRAININGS */}
-          {tab === 'available' && (
-            <div>
-              <div className="section-header">
-                <h3>Available Training Programs</h3>
-              </div>
-              {trainings.length === 0 ? (
-                <div className="card"><div className="empty-state"><p>No trainings available right now.</p></div></div>
-              ) : (
-                <div className="training-grid">
-                  {trainings.map(t => {
-                    const enrolled = isEnrolled(t.id)
-                    const full = t.isFull
-                    const pct = t.capacity ? Math.round(((t.enrolledCount||0) / t.capacity) * 100) : null
-                    return (
-                      <div key={t.id} className="training-card">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                          <div className="training-card-title" style={{ flex: 1, paddingRight: 10 }}>{t.title}</div>
-                          {enrolled && <span className="badge badge-green">Enrolled</span>}
-                          {full && !enrolled && <span className="badge badge-red">Full</span>}
-                        </div>
-                        <div className="training-card-desc">{t.description || 'No description available.'}</div>
-                        <div className="training-meta">
-                          <div className="meta-item"><span className="meta-key">Instructor:</span><span>{t.trainerName || 'TBA'}</span></div>
-                          <div className="meta-item"><span className="meta-key">Dates:</span><span>{fmtDate(t.startDate)} - {fmtDate(t.endDate)}</span></div>
-                          <div className="meta-item"><span className="meta-key">Enrolled:</span><span>{t.enrolledCount ?? 0} {t.capacity ? `/ ${t.capacity}` : ''}</span></div>
-                        </div>
-                        {pct !== null && (
-                          <div style={{ marginBottom: 14 }}>
-                            <div className="progress-bar"><div className="progress-fill" style={{ width: `${pct}%`, background: pct > 80 ? 'var(--danger)' : undefined }} /></div>
-                          </div>
-                        )}
-                        {!enrolled && !full && (
-                          <button className="btn btn-primary btn-full" onClick={() => handleEnroll(t.id)} disabled={loading}>
-                            Enroll in Program
-                          </button>
-                        )}
-                        {enrolled && (
-                          <button className="btn btn-full" style={{ color: 'var(--text-secondary)' }} disabled>Already Enrolled</button>
-                        )}
-                        {full && !enrolled && (
-                          <button className="btn btn-full" disabled style={{ opacity: 0.5 }}>Training is Full</button>
-                        )}
+      {tab === 'available' && (
+        <div>
+          {trainings.length === 0 ? (
+            <div className="card"><div className="empty-state"><p>No trainings available right now.</p></div></div>
+          ) : (
+            <div className="training-grid">
+              {trainings.map(t => {
+                const enrolled = isEnrolled(t.id)
+                const full = t.isFull
+                const pct = t.capacity ? Math.round(((t.enrolledCount||0) / t.capacity) * 100) : null
+                return (
+                  <div key={t.id} className="training-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                      <div className="training-card-title" style={{ flex: 1, paddingRight: 10 }}>{t.title}</div>
+                      {enrolled && <span className="badge badge-green">Enrolled</span>}
+                      {full && !enrolled && <span className="badge badge-red">Full</span>}
+                    </div>
+                    <div className="training-card-desc">{t.description || 'No description available.'}</div>
+                    <div className="training-meta">
+                      <div className="meta-item"><span className="meta-key">Instructor:</span><span>{t.trainerName || 'TBA'}</span></div>
+                      <div className="meta-item"><span className="meta-key">Dates:</span><span>{fmtDate(t.startDate)} - {fmtDate(t.endDate)}</span></div>
+                      <div className="meta-item"><span className="meta-key">Enrolled:</span><span>{t.enrolledCount ?? 0} {t.capacity ? `/ ${t.capacity}` : ''}</span></div>
+                    </div>
+                    {pct !== null && (
+                      <div style={{ marginBottom: 14 }}>
+                        <div className="progress-bar"><div className="progress-fill" style={{ width: `${pct}%`, background: pct > 80 ? 'var(--danger)' : undefined }} /></div>
                       </div>
+                    )}
+                    {!enrolled && !full && (
+                      <button className="btn btn-primary btn-full" onClick={() => handleEnroll(t.id)} disabled={loading}>
+                        Enroll in Program
+                      </button>
+                    )}
+                    {enrolled && (
+                      <button className="btn btn-full" style={{ color: 'var(--text-secondary)' }} disabled>Already Enrolled</button>
+                    )}
+                    {full && !enrolled && (
+                      <button className="btn btn-full" disabled style={{ opacity: 0.5 }}>Training is Full</button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'myEnrollments' && (
+        <div className="card">
+          <div className="card-header">
+            <h3>My Enrollments ({enrollments.length})</h3>
+          </div>
+          {enrollments.length === 0 ? (
+            <div className="empty-state"><p>Not enrolled in any training yet.</p></div>
+          ) : (
+            <div className="table-wrapper">
+              <table className="table">
+                <thead><tr><th>Training</th><th>Trainer</th><th>Start Date</th><th>End Date</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody>
+                  {enrollments.map(e => (
+                    <tr key={e.id}>
+                      <td><strong>{e.trainingTitle}</strong></td>
+                      <td>{e.trainerName || '-'}</td>
+                      <td>{fmtDate(e.startDate)}</td>
+                      <td>{fmtDate(e.endDate)}</td>
+                      <td><span className="badge badge-green">Enrolled</span></td>
+                      <td>
+                        <button className="btn btn-sm btn-danger" onClick={() => handleCancelEnrollment(e.trainingId)}>Cancel</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'feedback' && (
+        <div className="card">
+          <div className="card-header">
+            <h3>Submit Feedback</h3>
+          </div>
+          {enrollments.length === 0 ? (
+            <div className="empty-state"><p>Enroll in a training first.</p></div>
+          ) : (
+            <div className="table-wrapper">
+              <table className="table">
+                <thead><tr><th>Training</th><th>Trainer</th><th>Start Date</th><th>Action</th></tr></thead>
+                <tbody>
+                  {enrollments.map(e => {
+                    const started = new Date() >= new Date(e.startDate)
+                    const submitted = hasFeedback(e.trainingId)
+                    return (
+                      <tr key={e.id}>
+                        <td><strong>{e.trainingTitle}</strong></td>
+                        <td>{e.trainerName || '-'}</td>
+                        <td>{fmtDate(e.startDate)}</td>
+                        <td>
+                          {submitted
+                            ? <span className="badge badge-green">Submitted</span>
+                            : started
+                              ? <button className="btn btn-sm btn-primary" onClick={() => openFeedback(e)}>Give Feedback</button>
+                              : <span className="badge badge-gray">Not started</span>
+                          }
+                        </td>
+                      </tr>
                     )
                   })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* MY ENROLLMENTS */}
-          {tab === 'myEnrollments' && (
-            <div className="card">
-              <div className="card-header">
-                <h3>My Enrollments ({enrollments.length})</h3>
-              </div>
-              {enrollments.length === 0 ? (
-                <div className="empty-state"><p>Not enrolled in any training yet. Browse available ones!</p></div>
-              ) : (
-                <div className="table-wrapper">
-                  <table className="table">
-                    <thead><tr><th>Training</th><th>Trainer</th><th>Start Date</th><th>End Date</th><th>Status</th><th>Actions</th></tr></thead>
-                    <tbody>
-                      {enrollments.map(e => (
-                        <tr key={e.id}>
-                          <td><strong>{e.trainingTitle}</strong></td>
-                          <td>{e.trainerName || '-'}</td>
-                          <td>{fmtDate(e.startDate)}</td>
-                          <td>{fmtDate(e.endDate)}</td>
-                          <td><span className="badge badge-green">Enrolled</span></td>
-                          <td>
-                            <button className="btn btn-sm btn-danger" onClick={() => handleCancelEnrollment(e.trainingId)}>Cancel</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* GIVE FEEDBACK */}
-          {tab === 'feedback' && (
-            <div className="card">
-              <div className="card-header">
-                <h3>Submit Feedback</h3>
-              </div>
-              {enrollments.length === 0 ? (
-                <div className="empty-state"><p>Enroll in a training first to leave feedback.</p></div>
-              ) : (
-                <div className="table-wrapper">
-                  <table className="table">
-                    <thead><tr><th>Training</th><th>Trainer</th><th>Start Date</th><th>Action</th></tr></thead>
-                    <tbody>
-                      {enrollments.map(e => {
-                        const started = new Date() >= new Date(e.startDate)
-                        const submitted = hasFeedback(e.trainingId)
-                        return (
-                          <tr key={e.id}>
-                            <td><strong>{e.trainingTitle}</strong></td>
-                            <td>{e.trainerName || '-'}</td>
-                            <td>{fmtDate(e.startDate)}</td>
-                            <td>
-                              {submitted
-                                ? <span className="badge badge-green">Submitted</span>
-                                : started
-                                  ? <button className="btn btn-sm btn-primary" onClick={() => openFeedback(e)}>Give Feedback</button>
-                                  : <span className="badge badge-gray">Not started</span>
-                              }
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* MY FEEDBACKS */}
-          {tab === 'myFeedbacks' && (
-            <div className="card">
-              <div className="card-header">
-                <h3>My Submitted Feedbacks ({feedbacks.length})</h3>
-              </div>
-              {feedbacks.length === 0 ? (
-                <div className="empty-state"><p>No feedback submitted yet.</p></div>
-              ) : (
-                <div className="table-wrapper">
-                  <table className="table">
-                    <thead><tr><th>Training</th><th>Trainer Rating</th><th>Subject Rating</th><th>Comments</th><th>Date</th></tr></thead>
-                    <tbody>
-                      {feedbacks.map(f => (
-                        <tr key={f.id}>
-                          <td><strong>{f.trainingTitle}</strong></td>
-                          <td><Stars v={f.trainerRating} /></td>
-                          <td><Stars v={f.subjectRating} /></td>
-                          <td style={{ fontSize: 12, color: 'var(--text-secondary)', maxWidth: 200 }}>{f.comments || '-'}</td>
-                          <td>{fmtDate(f.submittedAt)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
-      </div>
+      )}
 
-      {/* FEEDBACK MODAL */}
+      {tab === 'myFeedbacks' && (
+        <div className="card">
+          <div className="card-header">
+            <h3>My Feedbacks ({feedbacks.length})</h3>
+          </div>
+          {feedbacks.length === 0 ? (
+            <div className="empty-state"><p>No feedback submitted yet.</p></div>
+          ) : (
+            <div className="table-wrapper">
+              <table className="table">
+                <thead><tr><th>Training</th><th>Trainer Rating</th><th>Subject Rating</th><th>Comments</th><th>Date</th></tr></thead>
+                <tbody>
+                  {feedbacks.map(f => (
+                    <tr key={f.id}>
+                      <td><strong>{f.trainingTitle}</strong></td>
+                      <td><Stars v={f.trainerRating} /></td>
+                      <td><Stars v={f.subjectRating} /></td>
+                      <td style={{ fontSize: 12, color: 'var(--text-secondary)', maxWidth: 200 }}>{f.comments || '-'}</td>
+                      <td>{fmtDate(f.submittedAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {feedbackModal && (
         <div className="modal-overlay">
           <div className="modal">
@@ -357,7 +314,7 @@ function ParticipantDashboard({ user, onLogout }) {
           </div>
         </div>
       )}
-    </div>
+    </Layout>
   )
 }
 

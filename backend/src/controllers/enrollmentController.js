@@ -1,4 +1,5 @@
-const { Enrollment, Training, User, Feedback } = require('../models');
+const { Enrollment, Training, User, Feedback, Notification } = require('../models');
+const ActivityService = require('../services/activityService');
 
 const enrollInTraining = async (req, res) => {
   try {
@@ -39,6 +40,26 @@ const enrollInTraining = async (req, res) => {
       trainingId,
       status: 'ENROLLED'
     });
+
+    const io = req.app.get('io');
+    const user = await User.findByPk(participantId);
+
+    // Notify Participant
+    await Notification.create({
+      userId: participantId,
+      message: `You have successfully enrolled in training: ${training.title}`,
+      isRead: false
+    });
+
+    // Log activity
+    await ActivityService.logActivity({
+      userId: participantId,
+      userName: user?.name || 'Unknown',
+      action: 'ENROLLMENT_DONE',
+      entityType: 'Training',
+      entityId: trainingId,
+      details: { trainingName: training.title }
+    }, io);
 
     res.status(201).json({ message: 'Enrolled successfully', enrollment });
   } catch (error) {
@@ -129,6 +150,20 @@ const cancelEnrollment = async (req, res) => {
 
     enrollment.status = 'CANCELLED';
     await enrollment.save();
+
+    const io = req.app.get('io');
+    const user = await User.findByPk(participantId);
+    const training = await Training.findByPk(trainingId);
+
+    // Log activity
+    await ActivityService.logActivity({
+      userId: participantId,
+      userName: user?.name || 'Unknown',
+      action: 'ENROLLMENT_CANCELLED',
+      entityType: 'Training',
+      entityId: trainingId,
+      details: { trainingName: training?.title }
+    }, io);
 
     res.json({ message: 'Enrollment cancelled successfully' });
   } catch (error) {
