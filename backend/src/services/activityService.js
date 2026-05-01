@@ -82,6 +82,9 @@ class ActivityService {
       ? messageBuilder({ userName: activity.userName, ...additionalData })
       : activity.action;
 
+    const dateObj = activity.createdAt || activity.created_at || new Date();
+    const finalDate = dateObj instanceof Date ? dateObj : new Date(dateObj);
+
     return {
       id: activity.id,
       userId: activity.userId,
@@ -91,8 +94,8 @@ class ActivityService {
       entityType: activity.entityType,
       entityId: activity.entityId,
       message,
-      createdAt: activity.createdAt,
-      timestamp: activity.createdAt.getTime(),
+      createdAt: finalDate,
+      timestamp: finalDate.getTime(),
     };
   }
 
